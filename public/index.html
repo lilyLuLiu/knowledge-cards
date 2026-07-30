@@ -94,7 +94,9 @@ body.dark { --bg:#1a1a2e; --card-bg:#16213e; --primary:#a29bfe; --primary-light:
 .cat-language .card-category { background:#6c5ce7; }
 .cat-other .card-category { background:#636e72; }
 .card-title { font-size:17px; font-weight:700; margin-bottom:8px; line-height:1.4; }
-.card-content { font-size:14px; color:var(--text-light); line-height:1.6; white-space:pre-wrap; word-break:break-word; }
+.card-content { font-size:14px; color:var(--text-light); line-height:1.6; word-break:break-word; }
+.card-content.md-content { white-space:normal; }
+.card-content:not(.md-content) { white-space:pre-wrap; }
 .card-footer { display:flex; justify-content:space-between; align-items:center; margin-top:14px; padding-top:12px; border-top:1px solid var(--border); }
 .card-date { font-size:12px; color:var(--text-light); }
 .card-actions { display:flex; gap:8px; }
@@ -157,7 +159,9 @@ body.dark .knowledge-card.mastered .card-date { color:#4a4565; }
 .flashcard-label { font-size:13px; color:var(--text-light); text-transform:uppercase; letter-spacing:1px; margin-bottom:12px; }
 .flashcard-back .flashcard-label { color:rgba(255,255,255,0.7); }
 .flashcard-title { font-size:26px; font-weight:700; line-height:1.4; margin-bottom:16px; }
-.flashcard-content { font-size:17px; line-height:1.7; white-space:pre-wrap; word-break:break-word; }
+.flashcard-content { font-size:17px; line-height:1.7; word-break:break-word; }
+.flashcard-content.md-content { white-space:normal; }
+.flashcard-content:not(.md-content) { white-space:pre-wrap; }
 .flashcard-hint { font-size:13px; color:var(--text-light); margin-top:20px; }
 .flashcard-back .flashcard-hint { color:rgba(255,255,255,0.6); }
 .review-controls { display:flex; gap:16px; justify-content:center; flex-wrap:wrap; }
@@ -205,7 +209,9 @@ body.dark .knowledge-card.mastered .card-date { color:#4a4565; }
 .recall-card { background:var(--card-bg); border-radius:var(--radius); padding:32px; box-shadow:var(--shadow); max-width:600px; width:100%; margin:0 auto; position:relative; border:2px solid var(--primary-light); }
 .recall-category { display:inline-block; padding:4px 14px; border-radius:20px; font-size:13px; font-weight:600; color:#fff; margin-bottom:20px; }
 .recall-label { font-size:13px; color:var(--text-light); text-transform:uppercase; letter-spacing:1px; margin-bottom:10px; }
-.recall-answer { font-size:18px; line-height:1.7; color:var(--text); white-space:pre-wrap; word-break:break-word; padding:16px; background:var(--bg); border-radius:12px; margin-bottom:24px; }
+.recall-answer { font-size:18px; line-height:1.7; color:var(--text); word-break:break-word; padding:16px; background:var(--bg); border-radius:12px; margin-bottom:24px; }
+.recall-answer.md-content { white-space:normal; }
+.recall-answer:not(.md-content) { white-space:pre-wrap; }
 .recall-input { width:100%; min-height:100px; padding:14px; border:2px solid var(--border); border-radius:12px; font-size:16px; background:var(--bg); color:var(--text); font-family:inherit; resize:vertical; transition:border-color 0.2s; box-sizing:border-box; }
 .recall-input:focus { outline:none; border-color:var(--primary); }
 .recall-input:disabled { opacity:0.7; }
@@ -226,6 +232,29 @@ body.dark .knowledge-card.mastered .card-date { color:#4a4565; }
 .dictation-hint { font-size:14px; color:var(--text-light); margin-bottom:16px; }
 .dictation-play-btn { padding:12px 32px; border:none; border-radius:30px; background:var(--success); color:#fff; font-size:16px; font-weight:600; cursor:pointer; transition:all 0.2s; }
 .dictation-play-btn:hover { opacity:0.85; transform:scale(1.03); }
+.dictation-play-btn.playing { animation:pulse 0.6s infinite; }
+.md-h1 { font-size:1.4em; font-weight:700; margin:8px 0 4px; }
+.md-h2 { font-size:1.25em; font-weight:700; margin:8px 0 4px; }
+.md-h3 { font-size:1.1em; font-weight:600; margin:6px 0 3px; }
+.md-h4 { font-size:1em; font-weight:600; margin:6px 0 3px; }
+.md-code-block { background:rgba(0,0,0,0.06); border-radius:8px; padding:12px; margin:8px 0; overflow-x:auto; font-size:0.9em; line-height:1.5; }
+body.dark .md-code-block { background:rgba(255,255,255,0.08); }
+.md-code-block code { font-family:'SF Mono','Fira Code',monospace; white-space:pre; }
+.md-code-inline { background:rgba(0,0,0,0.06); padding:2px 6px; border-radius:4px; font-family:'SF Mono','Fira Code',monospace; font-size:0.88em; }
+body.dark .md-code-inline { background:rgba(255,255,255,0.08); }
+.md-quote { border-left:3px solid var(--primary); padding-left:12px; margin:8px 0; color:var(--text-light); font-style:italic; }
+.md-hr { border:none; border-top:1px solid var(--border); margin:10px 0; }
+.md-ul, .md-ol { margin:6px 0; padding-left:20px; }
+.md-li { margin:3px 0; line-height:1.6; }
+.md-link { color:var(--primary); text-decoration:underline; }
+.flashcard-content .md-code-block, .recall-answer .md-code-block { background:rgba(255,255,255,0.12); }
+.flashcard-content .md-code-inline, .recall-answer .md-code-inline { background:rgba(255,255,255,0.12); }
+.flashcard-back .md-quote { color:rgba(255,255,255,0.85); border-left-color:rgba(255,255,255,0.5); }
+.flashcard-back .md-link { color:#fff; text-decoration:underline; }
+.flashcard-back .md-hr { border-top-color:rgba(255,255,255,0.3); }
+.flashcard-back .md-code-block { background:rgba(0,0,0,0.2); }
+.flashcard-back .md-code-inline { background:rgba(0,0,0,0.2); }
+.flashcard-back .flashcard-content { text-align:left; width:100%; }
 .dictation-play-btn.playing { animation:pulse 0.6s infinite; }
 @keyframes fadeIn { from{opacity:0;transform:translateY(10px);} to{opacity:1;transform:translateY(0);} }
 .sync-indicator { display:inline-flex; align-items:center; gap:6px; font-size:12px; color:var(--text-light); padding:4px 12px; background:var(--bg); border-radius:20px; }
@@ -336,7 +365,7 @@ body.dark .knowledge-card.mastered .card-date { color:#4a4565; }
       </div>
     </div>
     <div class="form-group"><label class="form-label">标题 / 问题</label><input type="text" class="form-input" id="cardTitle" placeholder="例如：什么是闭包？" maxlength="200"></div>
-    <div class="form-group"><label class="form-label">内容 / 答案</label><textarea class="form-textarea" id="cardContent" placeholder="输入知识点详细内容..." maxlength="2000"></textarea></div>
+    <div class="form-group"><label class="form-label">内容 / 答案 <span style="font-size:11px;color:var(--text-light);font-weight:400;">（支持 Markdown：# 标题、**粗体**、`代码`、- 列表、> 引用等）</span></label><textarea class="form-textarea" id="cardContent" placeholder="输入知识点详细内容..." maxlength="2000"></textarea></div>
     <div class="modal-actions"><button class="btn btn-outline" onclick="closeModal()">取消</button><button class="btn btn-primary" onclick="saveCard()">保存</button></div>
   </div>
 </div>
@@ -598,7 +627,7 @@ function renderCards() {
       ${isMastered ? '<div class="mastered-badge">✅ 已学会</div>' : ''}
       <span class="card-category" style="background:${info.color}">${escapeHtml(info.name)}</span>
       <div class="card-title">${escapeHtml(card.title)}</div>
-      <div class="card-content">${escapeHtml(card.content)}</div>
+      <div class="card-content md-content">${renderMarkdown(card.content)}</div>
       <div class="card-footer"><div class="card-date">${formatDate(card.createdAt)}</div>
       <div class="card-actions"><button class="card-btn speak-btn" onclick="speakCard(${card.id}, this)" title="发音">🔊</button><button class="card-btn mastered-btn ${isMastered?'active':''}" onclick="toggleMastered(${card.id})" title="${isMastered?'取消已学会':'标记已学会'}">${isMastered?'✅':'⬜'}</button><button class="card-btn" onclick="editCard(${card.id})">✏️</button><button class="card-btn delete" onclick="deleteCard(${card.id})">🗑️</button></div></div>
     </div>`;
@@ -1057,7 +1086,7 @@ function doExportPDF() {
       return `<div class="pdf-card" style="border-left:5px solid ${info.color}">
         <div class="pdf-card-header"><span class="pdf-cat" style="background:${info.color}">${escapeHtml(info.name)}</span><span class="pdf-num">#${i+1}</span></div>
         <div class="pdf-card-title">${escapeHtml(card.title)}</div>
-        <div class="pdf-card-content">${escapeHtml(card.content)}</div>
+        <div class="pdf-card-content">${renderMarkdown(card.content)}</div>
       </div>`;
     }).join('');
   } else if (exportLayout === 'qa') {
@@ -1066,7 +1095,7 @@ function doExportPDF() {
       return `<div class="pdf-qa">
         <div class="pdf-qa-header"><span class="pdf-cat" style="background:${info.color}">${escapeHtml(info.name)}</span><span class="pdf-num">第 ${i+1} 题</span></div>
         <div class="pdf-qa-q"><span class="pdf-label">Q:</span> ${escapeHtml(card.title)}</div>
-        <div class="pdf-qa-a"><span class="pdf-label">A:</span> ${escapeHtml(card.content)}</div>
+        <div class="pdf-qa-a"><span class="pdf-label">A:</span> ${renderMarkdown(card.content)}</div>
       </div>`;
     }).join('');
   } else {
@@ -1076,7 +1105,7 @@ function doExportPDF() {
     cardsHtml = Object.keys(grouped).map(catKey => {
       const info = allCats[catKey] || {name:catKey, color:'#636e72'};
       const items = grouped[catKey].map((card, i) => 
-        `<tr><td class="pdf-td-num">${i+1}</td><td class="pdf-td-title">${escapeHtml(card.title)}</td><td class="pdf-td-content">${escapeHtml(card.content)}</td></tr>`
+        `<tr><td class="pdf-td-num">${i+1}</td><td class="pdf-td-title">${escapeHtml(card.title)}</td><td class="pdf-td-content">${renderMarkdown(card.content)}</td></tr>`
       ).join('');
       return `<h2 class="pdf-group-title" style="border-left:5px solid ${info.color};padding-left:10px;">${escapeHtml(info.name)}（${grouped[catKey].length} 张）</h2><table class="pdf-table"><thead><tr><th style="width:40px">#</th><th style="width:30%">标题</th><th>内容</th></tr></thead><tbody>${items}</tbody></table>`;
     }).join('');
@@ -1095,11 +1124,11 @@ function doExportPDF() {
     .pdf-cat { color:#fff; font-size:11px; font-weight:600; padding:2px 10px; border-radius:12px; }
     .pdf-num { font-size:12px; color:#b2bec3; }
     .pdf-card-title { font-size:17px; font-weight:700; margin-bottom:8px; }
-    .pdf-card-content { font-size:14px; line-height:1.7; color:#636e72; white-space:pre-wrap; word-break:break-word; }
+    .pdf-card-content { font-size:14px; line-height:1.7; color:#636e72; word-break:break-word; }
     .pdf-qa { margin-bottom:20px; page-break-inside:avoid; padding:16px 0; border-bottom:1px dashed #dfe6e9; }
     .pdf-qa-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
     .pdf-qa-q { font-size:16px; font-weight:700; margin-bottom:8px; }
-    .pdf-qa-a { font-size:14px; line-height:1.7; color:#636e72; white-space:pre-wrap; word-break:break-word; }
+    .pdf-qa-a { font-size:14px; line-height:1.7; color:#636e72; word-break:break-word; }
     .pdf-label { color:#6c5ce7; font-weight:700; }
     .pdf-group-title { font-size:18px; margin:24px 0 12px; color:#2d3436; }
     .pdf-table { width:100%; border-collapse:collapse; margin-bottom:20px; font-size:13px; }
@@ -1107,7 +1136,19 @@ function doExportPDF() {
     .pdf-table td { padding:8px 10px; border-bottom:1px solid #dfe6e9; vertical-align:top; }
     .pdf-td-num { color:#b2bec3; text-align:center; }
     .pdf-td-title { font-weight:600; }
-    .pdf-td-content { color:#636e72; white-space:pre-wrap; word-break:break-word; }
+    .pdf-td-content { color:#636e72; word-break:break-word; }
+    .pdf-card-content .md-h1, .pdf-qa-a .md-h1 { font-size:1.3em; font-weight:700; margin:6px 0 3px; }
+    .pdf-card-content .md-h2, .pdf-qa-a .md-h2 { font-size:1.15em; font-weight:700; margin:6px 0 3px; }
+    .pdf-card-content .md-h3, .pdf-qa-a .md-h3 { font-size:1em; font-weight:600; margin:4px 0 2px; }
+    .pdf-card-content .md-code-block, .pdf-qa-a .md-code-block, .pdf-td-content .md-code-block { background:#f0f0f5; border-radius:6px; padding:10px; margin:6px 0; font-family:monospace; font-size:0.9em; overflow-x:auto; }
+    .pdf-card-content .md-code-block code, .pdf-qa-a .md-code-block code, .pdf-td-content .md-code-block code { white-space:pre; }
+    .pdf-card-content .md-code-inline, .pdf-qa-a .md-code-inline, .pdf-td-content .md-code-inline { background:#f0f0f5; padding:1px 5px; border-radius:3px; font-family:monospace; font-size:0.88em; }
+    .pdf-card-content .md-quote, .pdf-qa-a .md-quote, .pdf-td-content .md-quote { border-left:3px solid #6c5ce7; padding-left:10px; margin:6px 0; color:#636e72; font-style:italic; }
+    .pdf-card-content .md-hr, .pdf-qa-a .md-hr, .pdf-td-content .md-hr { border:none; border-top:1px solid #dfe6e9; margin:8px 0; }
+    .pdf-card-content .md-ul, .pdf-qa-a .md-ul, .pdf-td-content .md-ul { margin:4px 0; padding-left:18px; }
+    .pdf-card-content .md-ol, .pdf-qa-a .md-ol, .pdf-td-content .md-ol { margin:4px 0; padding-left:18px; }
+    .pdf-card-content .md-li, .pdf-qa-a .md-li, .pdf-td-content .md-li { margin:2px 0; line-height:1.6; }
+    .pdf-card-content .md-link, .pdf-qa-a .md-link, .pdf-td-content .md-link { color:#6c5ce7; text-decoration:underline; }
     .pdf-footer { text-align:center; margin-top:30px; padding-top:15px; border-top:1px solid #dfe6e9; font-size:12px; color:#b2bec3; }
     @media print { body { padding:15px; } .pdf-card, .pdf-qa { page-break-inside:avoid; } }
   </style></head><body>
@@ -1142,7 +1183,7 @@ function renderReviewCard() {
   const isMastered = !!card.mastered;
   body.innerHTML = `<div class="flashcard" id="flashcard" onclick="flipCard()"><div class="flashcard-inner">
     <div class="flashcard-front"><span class="flashcard-category" style="background:${info.color}">${escapeHtml(info.name)}</span>${isMastered?'<span class="flashcard-mastered-tag">✅ 已学会</span>':''}<button class="flashcard-speak" onclick="event.stopPropagation();speakReviewCard('title',this)" title="发音">🔊</button><div class="flashcard-label">问题</div><div class="flashcard-title">${escapeHtml(card.title)}</div><div class="flashcard-hint">👆 点击卡片查看答案</div></div>
-    <div class="flashcard-back"><span class="flashcard-category" style="background:rgba(255,255,255,0.25)">${escapeHtml(info.name)}</span><button class="flashcard-speak" onclick="event.stopPropagation();speakReviewCard('content',this)" title="发音">🔊</button><div class="flashcard-label">答案</div><div class="flashcard-content">${escapeHtml(card.content)}</div><div class="flashcard-hint">👆 点击返回问题</div></div>
+    <div class="flashcard-back"><span class="flashcard-category" style="background:rgba(255,255,255,0.25)">${escapeHtml(info.name)}</span><button class="flashcard-speak" onclick="event.stopPropagation();speakReviewCard('content',this)" title="发音">🔊</button><div class="flashcard-label">答案</div><div class="flashcard-content md-content">${renderMarkdown(card.content)}</div><div class="flashcard-hint">👆 点击返回问题</div></div>
   </div></div><div class="review-controls"><button class="review-nav-btn skip" onclick="prevCard()" ${reviewIndex===0?'disabled':''}>⬅ 上一张</button><button class="review-nav-btn mastered-toggle ${isMastered?'active':''}" onclick="toggleMasteredReview()">${isMastered?'✅ 已学会':'⬜ 标记学会'}</button><button class="review-nav-btn next" onclick="nextCard()">下一张 ➡</button></div>`;
 }
 function flipCard() { document.getElementById('flashcard').classList.toggle('flipped'); }
@@ -1156,7 +1197,7 @@ function renderRecallCard() {
     ${isMastered?'<span style="position:absolute;top:16px;right:70px;font-size:12px;background:var(--success);color:#fff;padding:2px 10px;border-radius:20px;font-weight:600;">✅ 已学会</span>':''}
     <button class="recall-speak" onclick="speakReviewCard('content',this)" title="发音">🔊</button>
     <div class="recall-label">📖 答案（卡片背面）</div>
-    <div class="recall-answer">${escapeHtml(card.content)}</div>
+    <div class="recall-answer md-content">${renderMarkdown(card.content)}</div>
     <div class="recall-label">✍️ 请写出对应的知识点</div>
     <textarea class="recall-input" id="recallInput" placeholder="在这里写出你记得的知识点..." onkeydown="if(event.key==='Enter'&&event.ctrlKey){event.preventDefault();submitRecall();}"></textarea>
     <div id="recallResult"></div>
@@ -1243,7 +1284,7 @@ function submitDictation() {
   resultDiv.innerHTML = `<div class="recall-result ${isCorrect?'correct':'wrong'}">
     <div class="recall-result-title">${isCorrect?'✅ 回答正确！':'❌ 回答错误'}</div>
     <div class="recall-correct-answer">正确答案：<b>${escapeHtml(correctAnswer)}</b></div>
-    <div class="recall-correct-answer" style="margin-top:4px;">释义：${escapeHtml(card.content)}</div>
+    <div class="recall-correct-answer" style="margin-top:4px;">释义：<span class="md-content">${renderMarkdown(card.content)}</span></div>
     <div style="font-size:13px;color:var(--text-light);margin-top:6px;">相似度：${Math.round(similarity*100)}%</div>
   </div>`;
   input.disabled = true;
@@ -1276,6 +1317,53 @@ function prevCard() { if(reviewIndex>0){reviewIndex--;renderReviewCard();} }
 function exitReview() { document.getElementById('reviewOverlay').classList.remove('show'); renderCards(); updateStats(); }
 
 function escapeHtml(t) { const d=document.createElement('div'); d.textContent=t; return d.innerHTML; }
+
+function renderMarkdown(text) {
+  // 先转义 HTML 防止 XSS
+  let html = escapeHtml(text);
+  // 代码块 ```lang\ncode\n```
+  const codeBlocks = [];
+  html = html.replace(/```(\w*)\n?([\s\S]*?)```/g, (m, lang, code) => {
+    const placeholder = `\x00CODEBLOCK${codeBlocks.length}\x00`;
+    codeBlocks.push(`<pre class="md-code-block"><code>${code.replace(/\n$/, '')}</code></pre>`);
+    return placeholder;
+  });
+  // 标题 # ## ### ####
+  html = html.replace(/^#### (.+)$/gm, '<h4 class="md-h4">$1</h4>');
+  html = html.replace(/^### (.+)$/gm, '<h3 class="md-h3">$1</h3>');
+  html = html.replace(/^## (.+)$/gm, '<h2 class="md-h2">$1</h2>');
+  html = html.replace(/^# (.+)$/gm, '<h1 class="md-h1">$1</h1>');
+  // 引用 >
+  html = html.replace(/^&gt; (.+)$/gm, '<blockquote class="md-quote">$1</blockquote>');
+  // 分割线
+  html = html.replace(/^---+$/gm, '<hr class="md-hr">');
+  // 无序列表
+  html = html.replace(/^(\s*)([-*+]) (.+)$/gm, '$1<li class="md-li">$3</li>');
+  html = html.replace(/(<li class="md-li">[\s\S]*?<\/li>)(?!\s*<li)/g, '<ul class="md-ul">$1</ul>');
+  // 有序列表
+  html = html.replace(/^\d+\. (.+)$/gm, '<li class="md-oli">$1</li>');
+  html = html.replace(/(<li class="md-oli">[\s\S]*?<\/li>)(?!\s*<li class="md-oli")/g, '<ol class="md-ol">$1</ol>');
+  // 行内代码 `code`
+  html = html.replace(/`([^`]+)`/g, '<code class="md-code-inline">$1</code>');
+  // 粗体 **text** 或 __text__
+  html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+  html = html.replace(/__([^_]+)__/g, '<strong>$1</strong>');
+  // 斜体 *text* 或 _text_
+  html = html.replace(/(?<!\*)\*([^*]+)\*(?!\*)/g, '<em>$1</em>');
+  html = html.replace(/(?<!_)_([^_]+)_(?!_)/g, '<em>$1</em>');
+  // 链接 [text](url)
+  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" class="md-link">$1</a>');
+  // 还原代码块
+  codeBlocks.forEach((block, i) => {
+    html = html.replace(`\x00CODEBLOCK${i}\x00`, block);
+  });
+  // 将剩余换行转为 <br>（块级元素后的换行会被浏览器忽略，不影响布局）
+  html = html.replace(/\n/g, '<br>');
+  // 清理块级元素后多余的 <br>
+  html = html.replace(/(<\/(?:h1|h2|h3|h4|ul|ol|blockquote|pre|hr)>)<br>/g, '$1');
+  html = html.replace(/<br>(<(?:h1|h2|h3|h4|ul|ol|blockquote|pre|hr))/g, '$1');
+  return html;
+}
 function formatDate(ts) { const d=new Date(ts),n=new Date(),diff=n-d; if(diff<60000)return'刚刚'; if(diff<3600000)return Math.floor(diff/60000)+'分钟前'; if(diff<86400000)return Math.floor(diff/3600000)+'小时前'; if(diff<604800000)return Math.floor(diff/86400000)+'天前'; return `${d.getMonth()+1}月${d.getDate()}日`; }
 function showToast(msg) { const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2000); }
 
