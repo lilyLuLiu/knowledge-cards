@@ -1,0 +1,61 @@
+{
+  "cards": [
+    {
+      "id": 1785222859348,
+      "category": "english",
+      "title": "Affect vs Effect",
+      "content": "Affect (动词) = 影响\nEffect (名词) = 效果\n\n例句：\nThe weather affects my mood.\nThe effect was immediate.",
+      "createdAt": 1785222859347
+    },
+    {
+      "id": 1785222859349,
+      "category": "programming",
+      "title": "什么是闭包 (Closure)",
+      "content": "闭包是函数和其词法环境的组合。\n\n内层函数可以访问外层函数的变量，即使外层函数已执行完毕。",
+      "createdAt": 1785222859347
+    },
+    {
+      "id": 1785222859350,
+      "category": "programming",
+      "title": "HTTP 状态码",
+      "content": "1xx - 信息\n2xx - 成功 (200 OK)\n3xx - 重定向 (301, 304)\n4xx - 客户端错误 (404)\n5xx - 服务端错误 (500)",
+      "createdAt": 1785222859347
+    },
+    {
+      "id": 1785222859351,
+      "category": "english",
+      "title": "常用短语: Break down",
+      "content": "break down = 分解、崩溃、出故障\n\nThe car broke down on the highway.",
+      "createdAt": 1785222859347
+    },
+    {
+      "id": 1785222863326,
+      "category": "math",
+      "title": "勾股定理",
+      "content": "a²+b²=c²",
+      "createdAt": 1785222863326
+    },
+    {
+      "id": 1785285234341,
+      "category": "english",
+      "title": "test",
+      "content": "hello",
+      "createdAt": 1785285234341
+    },
+    {
+      "id": 1785285235092,
+      "category": "english",
+      "title": "test2",
+      "content": "world",
+      "createdAt": 1785285235092,
+      "mastered": true
+    }
+  ],
+  "customCategories": {},
+  "reviewLogs": {},
+  "streak": {
+    "count": 0,
+    "lastDate": null
+  },
+  "deletedDefaults": []
+}
