@@ -124,7 +124,12 @@ body.dark .knowledge-card.mastered .card-date { color:#4a4565; }
 .review-nav-btn.mastered-toggle { background:var(--card-bg); color:var(--text); box-shadow:var(--shadow); font-size:13px; }
 .review-nav-btn.mastered-toggle.active { background:var(--success); color:#fff; }
 .card-btn.delete:hover { background:var(--danger); }
-.review-badge { position:absolute; top:12px; right:12px; background:var(--success); color:#fff; font-size:10px; padding:2px 8px; border-radius:20px; font-weight:600; }
+.review-badge { position:absolute; top:12px; right:78px; background:#0984e3; color:#fff; font-size:10px; padding:2px 8px; border-radius:20px; font-weight:600; }
+.important-badge { position:absolute; top:12px; right:144px; background:#fd7e14; color:#fff; font-size:10px; padding:2px 8px; border-radius:20px; font-weight:600; }
+.flashcard-important-tag { padding:4px 12px; border-radius:20px; font-size:12px; font-weight:600; margin-bottom:0; color:#fff; background:rgba(253,126,20,0.8); }
+.review-nav-btn.important-toggle { background:var(--card-bg); color:var(--text); box-shadow:var(--shadow); font-size:13px; }
+.review-nav-btn.important-toggle.active { background:#fd7e14; color:#fff; }
+.card-btn.important-btn.active { background:#fd7e14; color:#fff; }
 
 /* Modal */
 .modal-overlay { display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); z-index:1000; justify-content:center; align-items:center; padding:20px; }
@@ -309,6 +314,7 @@ body.dark .md-code-inline { background:rgba(255,255,255,0.08); }
   <div class="stat-card"><div class="stat-number" id="totalCards">0</div><div class="stat-label">总卡片</div></div>
   <div class="stat-card"><div class="stat-number" id="todayReview">0</div><div class="stat-label">今日已复习</div></div>
   <div class="stat-card"><div class="stat-number" id="masteredCount">0</div><div class="stat-label">已学会</div></div>
+  <div class="stat-card"><div class="stat-number" id="importantCount">0</div><div class="stat-label">重点</div></div>
   <div class="stat-card"><div class="stat-number" id="streakDays">0</div><div class="stat-label">连续天数</div></div>
 </div>
 
@@ -330,6 +336,15 @@ body.dark .md-code-inline { background:rgba(255,255,255,0.08); }
         <span class="filter-pill active" data-mastered-filter="all" onclick="setDisplayFilter('all')">📋 全部</span>
         <span class="filter-pill" data-mastered-filter="unmastered" onclick="setDisplayFilter('unmastered')">❌ 未学会</span>
         <span class="filter-pill" data-mastered-filter="mastered" onclick="setDisplayFilter('mastered')">✅ 已学会</span>
+      </div>
+    </div>
+    <div class="filter-divider"></div>
+    <div class="filter-group">
+      <span class="filter-label">重点</span>
+      <div class="filter-pills">
+        <span class="filter-pill active" data-important-filter="all" onclick="setImportantFilter('all')">📋 全部</span>
+        <span class="filter-pill" data-important-filter="important" onclick="setImportantFilter('important')">⭐ 重点</span>
+        <span class="filter-pill" data-important-filter="normal" onclick="setImportantFilter('normal')">📭 非重点</span>
       </div>
     </div>
     <div class="filter-divider"></div>
@@ -446,6 +461,14 @@ body.dark .md-code-inline { background:rgba(255,255,255,0.08); }
       </div>
     </div>
     <div class="form-group">
+      <label class="form-label">重点筛选</label>
+      <div class="order-options" id="importantOptions">
+        <div class="order-option active" data-important="all" onclick="selectImportantFilter('all')">📋 全部</div>
+        <div class="order-option" data-important="important" onclick="selectImportantFilter('important')">⭐ 仅重点</div>
+        <div class="order-option" data-important="normal" onclick="selectImportantFilter('normal')">📭 仅非重点</div>
+      </div>
+    </div>
+    <div class="form-group">
       <label class="form-label">复习卡片数目</label>
       <div style="display:flex;align-items:center;gap:12px;">
         <input type="number" class="review-count-input" id="reviewCount" value="10" min="0" max="999" oninput="updateReviewSummary()">
@@ -476,7 +499,7 @@ body.dark .md-code-inline { background:rgba(255,255,255,0.08); }
 const defaultCategories = { english:{name:'英语',color:'#e17055'}, programming:{name:'编程',color:'#0984e3'}, math:{name:'数学',color:'#00b894'}, science:{name:'科学',color:'#fd79a8'}, history:{name:'历史',color:'#fdcb6e'}, language:{name:'语言',color:'#6c5ce7'}, other:{name:'其他',color:'#636e72'} };
 let cards=[], customCategories={}, reviewLogs={}, streak={count:0,lastDate:null}, deletedDefaults=[];
 let currentFilter='all', editingId=null, reviewQueue=[], reviewIndex=0;
-let displayMasteredFilter='all', sortMode='desc';
+let displayMasteredFilter='all', displayImportantFilter='all', sortMode='desc';
 let reviewMode='flip';
 
 function getToken() { return localStorage.getItem('kc_token') || ''; }
@@ -487,7 +510,7 @@ async function api(method, path, body) {
   if (body) opts.body = JSON.stringify(body);
   const res = await fetch('/api' + path, opts);
   if (res.status === 401) { showLogin(); throw new Error('unauthorized'); }
-  if (!res.ok) throw new Error('API error');
+  if (!res.ok) { const err = new Error('API error ' + res.status); err.status = res.status; throw err; }
   return res.json();
 }
 
@@ -601,6 +624,11 @@ function setDisplayFilter(mode) {
   document.querySelectorAll('[data-mastered-filter]').forEach(el => el.classList.toggle('active', el.dataset.masteredFilter === mode));
   renderCards();
 }
+function setImportantFilter(mode) {
+  displayImportantFilter = mode;
+  document.querySelectorAll('[data-important-filter]').forEach(el => el.classList.toggle('active', el.dataset.importantFilter === mode));
+  renderCards();
+}
 
 function setSortOrder(mode) {
   sortMode = mode;
@@ -615,6 +643,8 @@ function renderCards() {
   let filtered = currentFilter==='all' ? cards : cards.filter(c => c.category===currentFilter);
   if (displayMasteredFilter === 'mastered') filtered = filtered.filter(c => c.mastered);
   else if (displayMasteredFilter === 'unmastered') filtered = filtered.filter(c => !c.mastered);
+  if (displayImportantFilter === 'important') filtered = filtered.filter(c => c.important);
+  else if (displayImportantFilter === 'normal') filtered = filtered.filter(c => !c.important);
   filtered.sort((a,b) => sortMode==='desc' ? b.createdAt-a.createdAt : a.createdAt-b.createdAt);
   if (filtered.length===0) { grid.innerHTML=''; empty.style.display='block'; return; }
   empty.style.display='none';
@@ -622,14 +652,16 @@ function renderCards() {
   grid.innerHTML = filtered.map(card => {
     const info = getCategoryInfo(card.category);
     const isMastered = !!card.mastered;
+    const isImportant = !!card.important;
     return `<div class="knowledge-card ${isMastered?'mastered':''}" style="border-left-color:${info.color}">
       ${todayLog.includes(card.id) ? '<div class="review-badge">✓ 今日已复习</div>' : ''}
       ${isMastered ? '<div class="mastered-badge">✅ 已学会</div>' : ''}
+      ${isImportant ? '<div class="important-badge">⭐ 重点</div>' : ''}
       <span class="card-category" style="background:${info.color}">${escapeHtml(info.name)}</span>
       <div class="card-title">${escapeHtml(card.title)}</div>
       <div class="card-content md-content">${renderMarkdown(card.content)}</div>
       <div class="card-footer"><div class="card-date">${formatDate(card.createdAt)}</div>
-      <div class="card-actions"><button class="card-btn speak-btn" onclick="speakCard(${card.id}, this)" title="发音">🔊</button><button class="card-btn mastered-btn ${isMastered?'active':''}" onclick="toggleMastered(${card.id})" title="${isMastered?'取消已学会':'标记已学会'}">${isMastered?'✅':'⬜'}</button><button class="card-btn" onclick="editCard(${card.id})">✏️</button><button class="card-btn delete" onclick="deleteCard(${card.id})">🗑️</button></div></div>
+      <div class="card-actions"><button class="card-btn speak-btn" onclick="speakCard(${card.id}, this)" title="发音">🔊</button><button class="card-btn mastered-btn ${isMastered?'active':''}" onclick="toggleMastered(${card.id})" title="${isMastered?'取消已学会':'标记已学会'}">${isMastered?'✅':'⬜'}</button><button class="card-btn important-btn ${isImportant?'active':''}" onclick="toggleImportant(${card.id})" title="${isImportant?'取消重点':'标记重点'}">${isImportant?'⭐':'☆'}</button><button class="card-btn" onclick="editCard(${card.id})">✏️</button><button class="card-btn delete" onclick="deleteCard(${card.id})">🗑️</button></div></div>
     </div>`;
   }).join('');
 }
@@ -638,6 +670,7 @@ function updateStats() {
   document.getElementById('totalCards').textContent = cards.length;
   document.getElementById('todayReview').textContent = getTodayReviewLog().length;
   document.getElementById('masteredCount').textContent = cards.filter(c => c.mastered).length;
+  document.getElementById('importantCount').textContent = cards.filter(c => c.important).length;
   document.getElementById('streakDays').textContent = streak.count || 0;
 }
 function getTodayReviewLog() { return reviewLogs[new Date().toDateString()] || []; }
@@ -711,6 +744,7 @@ async function toggleMastered(id) {
     const res = await api('PATCH','/cards/'+id+'/mastered',{});
     card.mastered = res.mastered;
     renderCards();
+    updateStats();
     showToast(card.mastered ? '✅ 已标记为学会' : '已取消学会标记');
   } catch(e) { showToast('操作失败'); }
 }
@@ -720,9 +754,44 @@ async function toggleMasteredReview() {
   try {
     const res = await api('PATCH','/cards/'+card.id+'/mastered',{});
     card.mastered = res.mastered;
-    renderReviewCard();
+    preserveAndRerender();
     showToast(card.mastered ? '✅ 已标记为学会' : '已取消学会标记');
-  } catch(e) { showToast('操作失败'); }
+  } catch(e) { showToast(e.status === 404 ? '服务器未更新，请更新 server.js' : '操作失败'); }
+}
+async function toggleImportant(id) {
+  const card = cards.find(c => c.id === id);
+  if (!card) return;
+  try {
+    const res = await api('PATCH','/cards/'+id+'/important',{});
+    card.important = res.important;
+    renderCards();
+    updateStats();
+    showToast(card.important ? '⭐ 已标记为重点' : '已取消重点标记');
+  } catch(e) { showToast(e.status === 404 ? '服务器未更新，请更新 server.js' : '操作失败'); }
+}
+async function toggleImportantReview() {
+  const card = reviewQueue[reviewIndex];
+  if (!card) return;
+  try {
+    const res = await api('PATCH','/cards/'+card.id+'/important',{});
+    card.important = res.important;
+    preserveAndRerender();
+    showToast(card.important ? '⭐ 已标记为重点' : '已取消重点标记');
+  } catch(e) { showToast(e.status === 404 ? '服务器未更新，请更新 server.js' : '操作失败'); }
+}
+
+// 默写/听写模式重新渲染时保留输入内容和结果
+function preserveAndRerender() {
+  const input = document.getElementById('recallInput') || document.getElementById('dictationInput');
+  const result = document.getElementById('recallResult') || document.getElementById('dictationResult');
+  const savedValue = input ? input.value : '';
+  const savedDisabled = input ? input.disabled : false;
+  const savedResult = result ? result.innerHTML : '';
+  renderReviewCard();
+  const newInput = document.getElementById('recallInput') || document.getElementById('dictationInput');
+  const newResult = document.getElementById('recallResult') || document.getElementById('dictationResult');
+  if (newInput) { newInput.value = savedValue; newInput.disabled = savedDisabled; }
+  if (newResult) newResult.innerHTML = savedResult;
 }
 function closeModal() { document.getElementById('addModal').classList.remove('show'); editingId=null; }
 
@@ -826,6 +895,7 @@ async function restoreDefaults() {
 let reviewSelectedCats = new Set();
 let reviewOrder = 'random';
 let reviewMasteredFilter = 'all';
+let reviewImportantFilter = 'all';
 
 function openReviewSettings() {
   if (cards.length === 0) { showToast('没有卡片可复习'); return; }
@@ -848,6 +918,9 @@ function openReviewSettings() {
   reviewMasteredFilter = 'unmastered';
   document.querySelector('#masteredOptions .order-option.active')?.classList.remove('active');
   document.querySelector('#masteredOptions .order-option[data-mastered="unmastered"]').classList.add('active');
+  reviewImportantFilter = 'all';
+  document.querySelector('#importantOptions .order-option.active')?.classList.remove('active');
+  document.querySelector('#importantOptions .order-option[data-important="all"]').classList.add('active');
   document.getElementById('reviewCount').value = 10;
   renderReviewCategoryCheckboxes();
   updateReviewSummary();
@@ -913,6 +986,12 @@ function selectMasteredFilter(filter) {
   document.querySelector(`#masteredOptions .order-option[data-mastered="${filter}"]`).classList.add('active');
   updateReviewSummary();
 }
+function selectImportantFilter(filter) {
+  reviewImportantFilter = filter;
+  document.querySelectorAll('#importantOptions .order-option').forEach(el => el.classList.remove('active'));
+  document.querySelector(`#importantOptions .order-option[data-important="${filter}"]`).classList.add('active');
+  updateReviewSummary();
+}
 
 function updateReviewSummary() {
   const pool = getReviewPool();
@@ -921,12 +1000,13 @@ function updateReviewSummary() {
   const willReview = maxCount > 0 ? Math.min(maxCount, pool.length) : pool.length;
   const orderText = reviewOrder === 'random' ? '随机' : reviewOrder === 'sequential' ? '顺序（新→旧）' : '倒序（旧→新）';
   const masteredText = reviewMasteredFilter === 'all' ? '全部' : reviewMasteredFilter === 'mastered' ? '仅已学会' : '仅未学会';
+  const importantText = reviewImportantFilter === 'all' ? '全部' : reviewImportantFilter === 'important' ? '仅重点' : '仅非重点';
   const modeText = reviewMode === 'flip' ? '翻卡' : reviewMode === 'recall' ? '默写' : '听写';
   const summary = document.getElementById('reviewSummary');
   if (reviewSelectedCats.size === 0) {
     summary.innerHTML = '⚠️ 请至少选择一个分类';
   } else {
-    summary.innerHTML = `模式：<b>${modeText}</b>，已选 <b>${reviewSelectedCats.size}</b> 个分类，筛选：<b>${masteredText}</b>，可用卡片 <b>${pool.length}</b> 张，本次复习 <b>${willReview}</b> 张，顺序：<b>${orderText}</b>`;
+    summary.innerHTML = `模式：<b>${modeText}</b>，已选 <b>${reviewSelectedCats.size}</b> 个分类，学会：<b>${masteredText}</b>，重点：<b>${importantText}</b>，可用卡片 <b>${pool.length}</b> 张，本次复习 <b>${willReview}</b> 张，顺序：<b>${orderText}</b>`;
   }
 }
 
@@ -937,9 +1017,14 @@ function getReviewPool() {
     if (reviewMasteredFilter === 'unmastered') return !c.mastered;
     return true;
   };
-  let pool = cards.filter(c => reviewSelectedCats.has(c.category) && masteredFilter(c) && !todayLog.includes(c.id));
+  const importantFilter = (c) => {
+    if (reviewImportantFilter === 'important') return !!c.important;
+    if (reviewImportantFilter === 'normal') return !c.important;
+    return true;
+  };
+  let pool = cards.filter(c => reviewSelectedCats.has(c.category) && masteredFilter(c) && importantFilter(c) && !todayLog.includes(c.id));
   if (pool.length === 0) {
-    pool = cards.filter(c => reviewSelectedCats.has(c.category) && masteredFilter(c));
+    pool = cards.filter(c => reviewSelectedCats.has(c.category) && masteredFilter(c) && importantFilter(c));
   }
   return pool;
 }
@@ -1181,10 +1266,11 @@ function renderReviewCard() {
   if (reviewMode === 'dictation') { renderDictationCard(); return; }
   const card = reviewQueue[reviewIndex], info = getCategoryInfo(card.category);
   const isMastered = !!card.mastered;
+  const isImportant = !!card.important;
   body.innerHTML = `<div class="flashcard" id="flashcard" onclick="flipCard()"><div class="flashcard-inner">
-    <div class="flashcard-front"><span class="flashcard-category" style="background:${info.color}">${escapeHtml(info.name)}</span>${isMastered?'<span class="flashcard-mastered-tag">✅ 已学会</span>':''}<button class="flashcard-speak" onclick="event.stopPropagation();speakReviewCard('title',this)" title="发音">🔊</button><div class="flashcard-label">问题</div><div class="flashcard-title">${escapeHtml(card.title)}</div><div class="flashcard-hint">👆 点击卡片查看答案</div></div>
+    <div class="flashcard-front"><span class="flashcard-category" style="background:${info.color}">${escapeHtml(info.name)}</span>${isImportant?'<span class="flashcard-important-tag">⭐ 重点</span>':''}${isMastered?'<span class="flashcard-mastered-tag">✅ 已学会</span>':''}<button class="flashcard-speak" onclick="event.stopPropagation();speakReviewCard('title',this)" title="发音">🔊</button><div class="flashcard-label">问题</div><div class="flashcard-title">${escapeHtml(card.title)}</div><div class="flashcard-hint">👆 点击卡片查看答案</div></div>
     <div class="flashcard-back"><span class="flashcard-category" style="background:rgba(255,255,255,0.25)">${escapeHtml(info.name)}</span><button class="flashcard-speak" onclick="event.stopPropagation();speakReviewCard('content',this)" title="发音">🔊</button><div class="flashcard-label">答案</div><div class="flashcard-content md-content">${renderMarkdown(card.content)}</div><div class="flashcard-hint">👆 点击返回问题</div></div>
-  </div></div><div class="review-controls"><button class="review-nav-btn skip" onclick="prevCard()" ${reviewIndex===0?'disabled':''}>⬅ 上一张</button><button class="review-nav-btn mastered-toggle ${isMastered?'active':''}" onclick="toggleMasteredReview()">${isMastered?'✅ 已学会':'⬜ 标记学会'}</button><button class="review-nav-btn next" onclick="nextCard()">下一张 ➡</button></div>`;
+  </div></div><div class="review-controls"><button class="review-nav-btn skip" onclick="prevCard()" ${reviewIndex===0?'disabled':''}>⬅ 上一张</button><button class="review-nav-btn important-toggle ${isImportant?'active':''}" onclick="toggleImportantReview()">${isImportant?'⭐ 重点':'☆ 标记重点'}</button><button class="review-nav-btn mastered-toggle ${isMastered?'active':''}" onclick="toggleMasteredReview()">${isMastered?'✅ 已学会':'⬜ 标记学会'}</button><button class="review-nav-btn next" onclick="nextCard()">下一张 ➡</button></div>`;
 }
 function flipCard() { document.getElementById('flashcard').classList.toggle('flipped'); }
 
@@ -1192,17 +1278,20 @@ function renderRecallCard() {
   const body = document.getElementById('reviewBody');
   const card = reviewQueue[reviewIndex], info = getCategoryInfo(card.category);
   const isMastered = !!card.mastered;
+  const isImportant = !!card.important;
   body.innerHTML = `<div class="recall-card">
     <span class="recall-category" style="background:${info.color}">${escapeHtml(info.name)}</span>
+    ${isImportant?'<span style="position:absolute;top:16px;right:140px;font-size:12px;background:#fd7e14;color:#fff;padding:2px 10px;border-radius:20px;font-weight:600;">⭐ 重点</span>':''}
     ${isMastered?'<span style="position:absolute;top:16px;right:70px;font-size:12px;background:var(--success);color:#fff;padding:2px 10px;border-radius:20px;font-weight:600;">✅ 已学会</span>':''}
     <button class="recall-speak" onclick="speakReviewCard('content',this)" title="发音">🔊</button>
     <div class="recall-label">📖 答案（卡片背面）</div>
     <div class="recall-answer md-content">${renderMarkdown(card.content)}</div>
     <div class="recall-label">✍️ 请写出对应的知识点</div>
-    <textarea class="recall-input" id="recallInput" placeholder="在这里写出你记得的知识点..." onkeydown="if(event.key==='Enter'&&event.ctrlKey){event.preventDefault();submitRecall();}"></textarea>
+    <textarea class="recall-input" id="recallInput" placeholder="在这里写出你记得的知识点...（回车提交，正确后回车下一张）" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();event.stopPropagation();submitRecall();}"></textarea>
     <div id="recallResult"></div>
     <div class="recall-actions">
       <button class="review-nav-btn skip" onclick="prevCard()" ${reviewIndex===0?'disabled':''}>⬅ 上一张</button>
+      <button class="review-nav-btn important-toggle ${isImportant?'active':''}" onclick="toggleImportantReview()">${isImportant?'⭐ 重点':'☆ 标记重点'}</button>
       <button class="review-nav-btn mastered-toggle ${isMastered?'active':''}" onclick="toggleMasteredReview()">${isMastered?'✅ 已学会':'⬜ 标记学会'}</button>
       <button class="review-nav-btn next" style="background:var(--primary);color:#fff;" onclick="submitRecall()">📝 提交</button>
       <button class="review-nav-btn next" onclick="nextCard()">下一张 ➡</button>
@@ -1226,9 +1315,9 @@ function submitRecall() {
     <div class="recall-result-title">${isCorrect?'✅ 回答正确！':'❌ 回答错误'}</div>
     <div class="recall-correct-answer">正确答案：<b>${escapeHtml(correctAnswer)}</b></div>
     <div style="font-size:13px;color:var(--text-light);margin-top:6px;">相似度：${Math.round(similarity*100)}%</div>
+    ${isCorrect?'':'<button class="review-nav-btn" style="margin-top:10px;background:var(--primary);color:#fff;" onclick="retryRecall()">🔄 重新回答</button>'}
   </div>`;
-  input.disabled = true;
-  // 滚动到结果
+  input.disabled = isCorrect;
   resultDiv.scrollIntoView({ behavior:'smooth', block:'nearest' });
 }
 
@@ -1236,9 +1325,11 @@ function renderDictationCard() {
   const body = document.getElementById('reviewBody');
   const card = reviewQueue[reviewIndex], info = getCategoryInfo(card.category);
   const isMastered = !!card.mastered;
+  const isImportant = !!card.important;
   const isEnglish = card.category === 'english';
   body.innerHTML = `<div class="recall-card">
     <span class="recall-category" style="background:${info.color}">${escapeHtml(info.name)}</span>
+    ${isImportant?'<span style="position:absolute;top:16px;right:140px;font-size:12px;background:#fd7e14;color:#fff;padding:2px 10px;border-radius:20px;font-weight:600;">⭐ 重点</span>':''}
     ${isMastered?'<span style="position:absolute;top:16px;right:70px;font-size:12px;background:var(--success);color:#fff;padding:2px 10px;border-radius:20px;font-weight:600;">✅ 已学会</span>':''}
     <div class="dictation-audio-area">
       <div class="dictation-icon">🎧</div>
@@ -1246,10 +1337,11 @@ function renderDictationCard() {
       <button class="dictation-play-btn" id="dictationPlayBtn" onclick="playDictation()">🔊 点击播放发音</button>
     </div>
     <div class="recall-label">✍️ 请根据发音写出知识点</div>
-    <textarea class="recall-input" id="dictationInput" placeholder="在这里写出你听到的内容..." onkeydown="if(event.key==='Enter'&&event.ctrlKey){event.preventDefault();submitDictation();}"></textarea>
+    <textarea class="recall-input" id="dictationInput" placeholder="在这里写出你听到的内容...（回车提交，正确后回车下一张）" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();event.stopPropagation();submitDictation();}"></textarea>
     <div id="dictationResult"></div>
     <div class="recall-actions">
       <button class="review-nav-btn skip" onclick="prevCard()" ${reviewIndex===0?'disabled':''}>⬅ 上一张</button>
+      <button class="review-nav-btn important-toggle ${isImportant?'active':''}" onclick="toggleImportantReview()">${isImportant?'⭐ 重点':'☆ 标记重点'}</button>
       <button class="review-nav-btn mastered-toggle ${isMastered?'active':''}" onclick="toggleMasteredReview()">${isMastered?'✅ 已学会':'⬜ 标记学会'}</button>
       <button class="review-nav-btn next" style="background:var(--primary);color:#fff;" onclick="submitDictation()">📝 提交</button>
       <button class="review-nav-btn next" onclick="nextCard()">下一张 ➡</button>
@@ -1286,9 +1378,30 @@ function submitDictation() {
     <div class="recall-correct-answer">正确答案：<b>${escapeHtml(correctAnswer)}</b></div>
     <div class="recall-correct-answer" style="margin-top:4px;">释义：<span class="md-content">${renderMarkdown(card.content)}</span></div>
     <div style="font-size:13px;color:var(--text-light);margin-top:6px;">相似度：${Math.round(similarity*100)}%</div>
+    ${isCorrect?'':'<button class="review-nav-btn" style="margin-top:10px;background:var(--primary);color:#fff;" onclick="retryDictation()">🔄 重新回答</button>'}
   </div>`;
-  input.disabled = true;
+  input.disabled = isCorrect;
   resultDiv.scrollIntoView({ behavior:'smooth', block:'nearest' });
+}
+
+function retryRecall() {
+  const input = document.getElementById('recallInput');
+  const resultDiv = document.getElementById('recallResult');
+  if (!input || !resultDiv) return;
+  resultDiv.innerHTML = '';
+  input.disabled = false;
+  input.focus();
+  input.select();
+}
+
+function retryDictation() {
+  const input = document.getElementById('dictationInput');
+  const resultDiv = document.getElementById('dictationResult');
+  if (!input || !resultDiv) return;
+  resultDiv.innerHTML = '';
+  input.disabled = false;
+  input.focus();
+  input.select();
 }
 
 function calcSimilarity(a, b) {
@@ -1376,10 +1489,18 @@ document.addEventListener('keydown', (e) => {
     else if (document.getElementById('addModal').classList.contains('show')) closeModal();
   }
   if (document.getElementById('reviewOverlay').classList.contains('show') && reviewMode === 'flip') {
-    if (e.key===' '||e.key==='Enter') { e.preventDefault(); flipCard(); }
+    if (e.key===' ') { e.preventDefault(); flipCard(); }
+    else if (e.key==='Enter') { e.preventDefault(); nextCard(); }
     else if (e.key==='ArrowRight') nextCard();
     else if (e.key==='ArrowLeft') prevCard();
     else if (e.key==='s'||e.key==='S') { e.preventDefault(); const flipped=document.getElementById('flashcard')&&document.getElementById('flashcard').classList.contains('flipped'); speakReviewCard(flipped?'content':'title'); }
+  }
+  if (document.getElementById('reviewOverlay').classList.contains('show') && (reviewMode === 'recall' || reviewMode === 'dictation')) {
+    if (e.key==='Enter') {
+      const inputId = reviewMode === 'recall' ? 'recallInput' : 'dictationInput';
+      const input = document.getElementById(inputId);
+      if (input && input.disabled) { e.preventDefault(); nextCard(); }
+    }
   }
 });
 document.getElementById('addModal').addEventListener('click', (e) => { if(e.target===e.currentTarget) closeModal(); });

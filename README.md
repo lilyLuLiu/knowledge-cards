@@ -18,15 +18,22 @@
 - **复习设置**：
   - 分类多选：选择要复习的一个或多个分类
   - 已学会筛选：全部 / 仅未学会 / 仅已学会
+  - 重点筛选：全部 / 仅重点 / 仅非重点
   - 复习数目：自定义每次复习卡片数量
   - 排序方式：随机 / 顺序（新→旧）/ 倒序（旧→新）
 - **默认设置**：打开复习默认选择「英语」「未学会」「随机」
 - **评判标准**：默写和听写模式要求 100% 完全一致才算正确
+- **重新回答**：默写/听写模式回答错误后，可修改输入内容重新提交（输入框保持可用）
+- **复习快捷键**：
+  - 翻卡模式：空格键翻转卡片，回车键下一张，←/→ 上一张/下一张
+  - 默写/听写模式：回车键提交答案，Shift+回车换行，回答正确后回车键下一张
 
 ### 其他功能
 - **发音朗读** 🔊：英语卡片使用英文 TTS 朗读，其他卡片使用中文 TTS
 - **已学会标记** ✅：可将卡片标记为已学会，复习时可筛选
-- **卡片筛选排序**：列表页支持按已学会状态筛选、按时间正序/倒序排列
+- **重点标记** ⭐：可将卡片标记为重点，复习时可筛选。与已学会标记使用不同颜色区分
+- **三色标签区分**：已学会（绿色）、今日已复习（蓝色）、重点（橙色），互不重叠
+- **卡片筛选排序**：列表页支持按已学会状态筛选、按重点状态筛选、按时间正序/倒序排列
 - **连续打卡**：记录每日复习情况，统计连续复习天数
 - **PDF 导出** 📄：可选择分类导出卡片为 PDF 文件
 - **密码保护** 🔐：支持设置访问密码，保护隐私
@@ -174,7 +181,8 @@ systemctl restart knowledge-cards
       "content": "## 区别\n**Affect**（动词）= 影响\n**Effect**（名词）= 效果\n\n> 记忆口诀：RAVEN",
       "createdAt": 1690000000001,
       "updatedAt": 1690000000002,
-      "mastered": false
+      "mastered": false,
+      "important": false
     }
   ],
   "customCategories": {
@@ -193,7 +201,7 @@ systemctl restart knowledge-cards
 
 | 字段 | 说明 |
 |------|------|
-| `cards` | 所有卡片数组，每张卡片含 id、分类、标题、内容、创建时间、是否已学会 |
+| `cards` | 所有卡片数组，每张卡片含 id、分类、标题、内容、创建时间、是否已学会、是否重点 |
 | `customCategories` | 用户自定义分类 |
 | `reviewLogs` | 每日复习记录，按日期分组记录已复习的卡片 ID |
 | `streak` | 连续复习天数统计 |
@@ -253,11 +261,14 @@ cd knowledge-cards-deploy
 # 2. 使用管理脚本更新（自动保留数据）
 sudo bash manage.sh update
 
-# 或手动更新前端文件
+# 或手动更新代码文件
 sudo cp public/index.html /opt/knowledge-cards/public/
+sudo cp server.js /opt/knowledge-cards/
 sudo systemctl restart knowledge-cards
 ```
 
+> ⚠️ **重要**：如果新版本包含后端变更（如新增 API 端点），必须同时更新 `server.js` 和 `public/index.html`。只更新前端文件会导致部分功能报错。
+>
 > 更新操作只替换代码文件，不会影响 `data.json` 中的数据。
 
 ## 📱 手机使用
@@ -278,6 +289,22 @@ sudo systemctl restart knowledge-cards
 - **语音合成**：使用浏览器原生 SpeechSynthesis API，无需额外服务
 - **进程管理**：systemd 服务，支持开机自启和自动重启
 
+### API 接口
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| `GET` | `/api/state` | 获取所有数据（卡片、分类、复习记录等） |
+| `POST` | `/api/login` | 登录验证（返回 token） |
+| `POST` | `/api/cards` | 添加卡片 |
+| `PUT` | `/api/cards/:id` | 编辑卡片 |
+| `DELETE` | `/api/cards/:id` | 删除卡片 |
+| `PATCH` | `/api/cards/:id/mastered` | 切换已学会状态 |
+| `PATCH` | `/api/cards/:id/important` | 切换重点状态 |
+| `POST` | `/api/categories` | 新增分类 |
+| `DELETE` | `/api/categories/:key` | 删除分类 |
+| `POST` | `/api/categories/restore` | 恢复已删除的默认分类 |
+| `POST` | `/api/review/:id` | 记录卡片复习 |
+
 ## ❓ 常见问题
 
 **Q: 如何修改端口？**
@@ -294,3 +321,6 @@ A: JSON 文件存储，万张以内无性能问题。更多建议定期导出 PD
 
 **Q: 发音不工作？**
 A: 发音依赖浏览器的 SpeechSynthesis API。请使用 Chrome、Edge、Safari 等现代浏览器。部分 Linux 服务器环境可能缺少语音引擎，但手机和电脑浏览器通常都支持。
+
+**Q: 标记重点/已学会失败提示"服务器未更新"？**
+A: 说明服务器上的 `server.js` 版本过旧，缺少对应的 API 端点。请同时更新 `server.js` 和 `public/index.html` 后重启服务。

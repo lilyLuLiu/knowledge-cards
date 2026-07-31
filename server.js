@@ -162,6 +162,18 @@ const server = http.createServer((req, res) => {
         return;
       }
 
+      const importantMatch = pathname.match(/^\/api\/cards\/(\d+)\/important$/);
+      if (importantMatch && req.method === 'PATCH') {
+        const id = parseInt(importantMatch[1]);
+        const data = loadData();
+        const card = data.cards.find(c => c.id === id);
+        if (!card) { sendJSON(res, 404, { error: 'not found' }); return; }
+        card.important = parsed.important === true || parsed.important === undefined ? !card.important : parsed.important;
+        saveData(data);
+        sendJSON(res, 200, { success: true, important: card.important });
+        return;
+      }
+
       if (pathname === '/api/categories' && req.method === 'POST') {
         const data = loadData();
         data.customCategories[parsed.key] = { name: parsed.name, color: parsed.color };
