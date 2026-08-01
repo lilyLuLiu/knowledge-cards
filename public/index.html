@@ -324,6 +324,8 @@ body.dark .md-code-inline { background:rgba(255,255,255,0.08); }
   <div class="action-bar">
     <div class="section-title" id="sectionTitle">全部卡片</div>
     <div style="display:flex;gap:10px;flex-wrap:wrap;">
+      <button class="btn btn-outline" onclick="exportData()">📦 导出数据</button>
+      <button class="btn btn-outline" onclick="openImportModal()">📥 导入数据</button>
       <button class="btn btn-outline" onclick="openExportModal()">📄 导出PDF</button>
       <button class="btn btn-outline" onclick="openCategoryModal()">🗂️ 分类管理</button>
       <button class="btn btn-primary" onclick="openAddModal()">＋ 添加卡片</button>
@@ -436,6 +438,25 @@ body.dark .md-code-inline { background:rgba(255,255,255,0.08); }
   </div>
 </div>
 
+<div class="modal-overlay" id="importModal">
+  <div class="modal">
+    <div class="modal-title">📥 导入数据</div>
+    <p style="font-size:14px;color:var(--text-light);line-height:1.6;margin:0 0 8px;">从备份文件恢复全部数据。导入前会自动备份当前数据（data.json.bak），便于回滚。</p>
+    <div class="form-group">
+      <label class="form-label">导入方式</label>
+      <div class="order-options" id="importModeOptions">
+        <div class="order-option active" data-imode="replace" onclick="selectImportMode('replace')">🗑️ 替换全部</div>
+        <div class="order-option" data-imode="merge" onclick="selectImportMode('merge')">➕ 合并保留</div>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">选择备份文件（.json）</label>
+      <input type="file" id="importFile" accept="application/json,.json" style="width:100%;font-size:14px;">
+    </div>
+    <div class="modal-actions"><button class="btn btn-outline" onclick="closeImportModal()">取消</button><button class="btn btn-primary" onclick="doImport()">📥 导入</button></div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="reviewSettingsModal">
   <div class="modal">
     <div class="modal-title">🎲 复习设置</div>
@@ -470,9 +491,14 @@ body.dark .md-code-inline { background:rgba(255,255,255,0.08); }
     </div>
     <div class="form-group">
       <label class="form-label">复习卡片数目</label>
-      <div style="display:flex;align-items:center;gap:12px;">
-        <input type="number" class="review-count-input" id="reviewCount" value="10" min="0" max="999" oninput="updateReviewSummary()">
-        <span style="font-size:13px;color:var(--text-light);">张（0 或留空 = 全部）</span>
+      <div class="order-options" id="countOptions">
+        <div class="order-option active" data-count="10" onclick="selectCount('10')">10</div>
+        <div class="order-option" data-count="all" onclick="selectCount('all')">📋 全部</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;margin-top:8px;">
+        <span style="font-size:13px;color:var(--text-light);">或自定义：</span>
+        <input type="number" class="review-count-input" id="reviewCount" value="" min="1" max="999" placeholder="输入数字" oninput="selectCountCustom()">
+        <span style="font-size:13px;color:var(--text-light);">张</span>
       </div>
     </div>
     <div class="form-group">
@@ -896,6 +922,7 @@ let reviewSelectedCats = new Set();
 let reviewOrder = 'random';
 let reviewMasteredFilter = 'all';
 let reviewImportantFilter = 'all';
+let reviewCountMode = '10';
 
 function openReviewSettings() {
   if (cards.length === 0) { showToast('没有卡片可复习'); return; }
@@ -921,7 +948,10 @@ function openReviewSettings() {
   reviewImportantFilter = 'all';
   document.querySelector('#importantOptions .order-option.active')?.classList.remove('active');
   document.querySelector('#importantOptions .order-option[data-important="all"]').classList.add('active');
-  document.getElementById('reviewCount').value = 10;
+  reviewCountMode = '10';
+  document.querySelector('#countOptions .order-option.active')?.classList.remove('active');
+  document.querySelector('#countOptions .order-option[data-count="10"]').classList.add('active');
+  document.getElementById('reviewCount').value = '';
   renderReviewCategoryCheckboxes();
   updateReviewSummary();
   document.getElementById('reviewSettingsModal').classList.add('show');
@@ -992,11 +1022,31 @@ function selectImportantFilter(filter) {
   document.querySelector(`#importantOptions .order-option[data-important="${filter}"]`).classList.add('active');
   updateReviewSummary();
 }
+function selectCount(val) {
+  reviewCountMode = val;
+  document.querySelectorAll('#countOptions .order-option').forEach(el => el.classList.remove('active'));
+  const target = document.querySelector(`#countOptions .order-option[data-count="${val}"]`);
+  if (target) target.classList.add('active');
+  document.getElementById('reviewCount').value = '';
+  updateReviewSummary();
+}
+function selectCountCustom() {
+  const val = document.getElementById('reviewCount').value;
+  if (val && parseInt(val) > 0) {
+    reviewCountMode = val;
+    document.querySelectorAll('#countOptions .order-option').forEach(el => el.classList.remove('active'));
+    updateReviewSummary();
+  } else {
+    reviewCountMode = '10';
+    document.querySelector('#countOptions .order-option[data-count="10"]').classList.add('active');
+    updateReviewSummary();
+  }
+}
 
 function updateReviewSummary() {
   const pool = getReviewPool();
-  const countInput = document.getElementById('reviewCount').value;
-  const maxCount = parseInt(countInput) || 0;
+  const isAll = reviewCountMode === 'all';
+  const maxCount = isAll ? 0 : (parseInt(reviewCountMode) || 0);
   const willReview = maxCount > 0 ? Math.min(maxCount, pool.length) : pool.length;
   const orderText = reviewOrder === 'random' ? '随机' : reviewOrder === 'sequential' ? '顺序（新→旧）' : '倒序（旧→新）';
   const masteredText = reviewMasteredFilter === 'all' ? '全部' : reviewMasteredFilter === 'mastered' ? '仅已学会' : '仅未学会';
@@ -1037,8 +1087,8 @@ function confirmReview() {
   if (reviewSelectedCats.size === 0) { showToast('请至少选择一个分类'); return; }
   let pool = getReviewPool();
   if (pool.length === 0) { showToast('选中分类没有可复习的卡片'); return; }
-  const countInput = document.getElementById('reviewCount').value;
-  const maxCount = parseInt(countInput) || 0;
+  const isAll = reviewCountMode === 'all';
+  const maxCount = isAll ? 0 : (parseInt(reviewCountMode) || 0);
   // 排序
   if (reviewOrder === 'random') {
     reviewQueue = shuffle([...pool]);
@@ -1060,6 +1110,67 @@ function confirmReview() {
 }
 
 function startReview() { openReviewSettings(); }
+
+// ===== 数据导出 / 导入 =====
+async function exportData() {
+  try {
+    const state = await api('GET', '/state');
+    const payload = {
+      app: 'knowledge-cards',
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      data: {
+        cards: state.cards || [],
+        customCategories: state.customCategories || {},
+        reviewLogs: state.reviewLogs || {},
+        streak: state.streak || { count: 0, lastDate: null },
+        deletedDefaults: state.deletedDefaults || []
+      }
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const ts = new Date();
+    const pad = n => String(n).padStart(2, '0');
+    const name = `knowledge-cards-backup-${ts.getFullYear()}${pad(ts.getMonth() + 1)}${pad(ts.getDate())}-${pad(ts.getHours())}${pad(ts.getMinutes())}.json`;
+    a.href = url; a.download = name;
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+    showToast('数据已导出');
+  } catch (e) {
+    showToast('导出失败');
+  }
+}
+
+let importMode = 'replace';
+function openImportModal() { document.getElementById('importModal').classList.add('show'); }
+function closeImportModal() { document.getElementById('importModal').classList.remove('show'); }
+function selectImportMode(m) {
+  importMode = m;
+  document.querySelectorAll('#importModeOptions .order-option').forEach(el => el.classList.remove('active'));
+  document.querySelector(`#importModeOptions .order-option[data-imode="${m}"]`).classList.add('active');
+}
+async function doImport() {
+  const fileInput = document.getElementById('importFile');
+  const file = fileInput.files[0];
+  if (!file) { showToast('请先选择备份文件'); return; }
+  try {
+    const text = await file.text();
+    const parsed = JSON.parse(text);
+    const payload = parsed.data ? { ...parsed.data, mode: importMode } : { ...parsed, mode: importMode };
+    const res = await api('POST', '/import', payload);
+    if (res.success) {
+      showToast(`导入成功（${res.cardCount} 张），正在刷新…`);
+      closeImportModal();
+      fileInput.value = '';
+      setTimeout(() => init(), 600);
+    } else {
+      showToast(res.error || '导入失败');
+    }
+  } catch (e) {
+    showToast('文件解析失败或格式不正确');
+  }
+}
 
 // ===== 导出 PDF =====
 let exportSelectedCats = new Set();

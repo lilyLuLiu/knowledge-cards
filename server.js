@@ -229,6 +229,57 @@ const server = http.createServer((req, res) => {
         return;
       }
 
+      if (pathname === '/api/import' && req.method === 'POST') {
+        let imported = parsed.data ? parsed.data : parsed;
+        if (!imported || !Array.isArray(imported.cards)) {
+          sendJSON(res, 400, { error: '备份文件格式不正确' });
+          return;
+        }
+        const mode = (parsed.mode === 'merge') ? 'merge' : 'replace';
+        const data = loadData();
+        if (mode === 'merge') {
+          const map = new Map(data.cards.map(c => [c.id, c]));
+          imported.cards.forEach(c => {
+            if (map.has(c.id)) map.set(c.id, { ...map.get(c.id), ...c });
+            else map.set(c.id, c);
+          });
+          data.cards = [...map.values()];
+          if (imported.customCategories) Object.assign(data.customCategories, imported.customCategories);
+          if (imported.reviewLogs) {
+            Object.keys(imported.reviewLogs).forEach(d => {
+              const set = new Set(data.reviewLogs[d] || []);
+              imported.reviewLogs[d].forEach(id => set.add(id));
+              data.reviewLogs[d] = [...set];
+            });
+          }
+          if (imported.deletedDefaults) {
+            const set = new Set(data.deletedDefaults || []);
+            imported.deletedDefaults.forEach(k => set.add(k));
+            data.deletedDefaults = [...set];
+          }
+          if (imported.streak) {
+            const s1 = data.streak || { count: 0, lastDate: null };
+            const s2 = imported.streak || { count: 0, lastDate: null };
+            if (!s1.lastDate || (s2.lastDate && new Date(s2.lastDate) > new Date(s1.lastDate))) {
+              data.streak = s2;
+            } else if (s1.lastDate === s2.lastDate) {
+              data.streak = { count: Math.max(s1.count || 0, s2.count || 0), lastDate: s1.lastDate };
+            }
+          }
+        } else {
+          data.cards = imported.cards;
+          data.customCategories = imported.customCategories || {};
+          data.reviewLogs = imported.reviewLogs || {};
+          data.streak = imported.streak || { count: 0, lastDate: null };
+          data.deletedDefaults = imported.deletedDefaults || [];
+        }
+        // 备份旧数据，便于回滚
+        try { fs.writeFileSync(DATA_FILE + '.bak', JSON.stringify(data, null, 2), 'utf-8'); } catch (e) {}
+        saveData(data);
+        sendJSON(res, 200, { success: true, mode, cardCount: data.cards.length });
+        return;
+      }
+
       sendJSON(res, 404, { error: 'not found' });
     });
     return;
