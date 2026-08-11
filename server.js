@@ -4,7 +4,10 @@ const path = require('path');
 const crypto = require('crypto');
 
 // ===== Config =====
-const CONFIG_PATH = path.join(__dirname, 'config.json');
+// config.json 位置：可用 CONFIG_DIR 环境变量指定（容器部署时挂载到外部）
+const CONFIG_PATH = process.env.CONFIG_DIR
+  ? path.join(process.env.CONFIG_DIR, 'config.json')
+  : path.join(__dirname, 'config.json');
 function loadConfig() {
   try {
     return JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf-8'));
@@ -14,11 +17,15 @@ function loadConfig() {
 }
 const config = loadConfig();
 const PORT = process.env.PORT || config.port || 3000;
-const PASSWORD = config.password || '';
+// 密码优先取环境变量（便于 Docker/容器免挂载注入），回退到 config.json
+const PASSWORD = process.env.PASSWORD || config.password || '';
 const TITLE = config.title || '知识卡片';
 
-const DATA_FILE = path.join(__dirname, 'data.json');
+// 数据目录：容器部署时通过 DATA_DIR 指向挂载卷，默认与代码同目录（兼容旧部署）
+const DATA_DIR = process.env.DATA_DIR || __dirname;
+const DATA_FILE = path.join(DATA_DIR, 'data.json');
 const PUBLIC_DIR = path.join(__dirname, 'public');
+const PWA_DIR = path.join(__dirname, 'pwa');
 
 // ===== Data Layer =====
 function loadData() {
@@ -64,7 +71,8 @@ function genToken() {
 const MIME = {
   '.html': 'text/html; charset=utf-8', '.js': 'application/javascript',
   '.css': 'text/css', '.json': 'application/json', '.png': 'image/png',
-  '.jpg': 'image/jpeg', '.gif': 'image/gif', '.ico': 'image/x-icon', '.svg': 'image/svg+xml'
+  '.jpg': 'image/jpeg', '.gif': 'image/gif', '.ico': 'image/x-icon', '.svg': 'image/svg+xml',
+  '.webmanifest': 'application/manifest+json'
 };
 
 function sendJSON(res, code, data) {
@@ -74,6 +82,12 @@ function sendJSON(res, code, data) {
 
 // ===== Server =====
 const server = http.createServer((req, res) => {
+  // ===== CORS（允许分離托管的前端跨域调用 API）=====
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
+
   const url = new URL(req.url, `http://localhost:${PORT}`);
   const pathname = url.pathname;
 
@@ -285,6 +299,28 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  // ===== PWA Shell (same-origin, served from /pwa/) =====
+  // 让 iOS/Android 可通过“添加到主屏幕”安装为 App，首次打开填服务器地址，之后自动加载应用
+  if (pathname === '/pwa' || pathname.startsWith('/pwa/')) {
+    let rel = pathname.slice('/pwa'.length);
+    if (!rel || rel.endsWith('/')) rel = '/index.html';
+    const pwaPath = path.join(PWA_DIR, rel);
+    fs.readFile(pwaPath, (err, content) => {
+      if (err) {
+        fs.readFile(path.join(PWA_DIR, 'index.html'), (err2, content2) => {
+          if (err2) { res.writeHead(404); res.end('Not Found'); return; }
+          res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+          res.end(content2);
+        });
+        return;
+      }
+      const ext = path.extname(pwaPath);
+      res.writeHead(200, { 'Content-Type': MIME[ext] || 'application/octet-stream' });
+      res.end(content);
+    });
+    return;
+  }
+
   // ===== Static Files =====
   let filePath = pathname === '/' ? '/index.html' : pathname;
   filePath = path.join(PUBLIC_DIR, filePath);
@@ -307,6 +343,7 @@ server.listen(PORT, '0.0.0.0', () => {
   console.log(`\n🧠 ${TITLE}服务已启动！`);
   console.log(`\n📡 本机访问:  http://localhost:${PORT}`);
   console.log(`🌍 外网访问:  http://<服务器IP>:${PORT}`);
+  console.log(`📲 PWA 入口:  http://<服务器IP>:${PORT}/pwa/  （手机浏览器打开后可“添加到主屏幕”安装为 App）`);
   console.log(`🔐 密码保护:  ${PASSWORD ? '已启用' : '未启用（建议在 config.json 中设置密码）'}`);
   console.log(`\n按 Ctrl+C 停止服务\n`);
 });

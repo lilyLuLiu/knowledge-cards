@@ -79,6 +79,7 @@ case "$CMD" in
     SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
     cp "$SCRIPT_DIR/server.js" "$INSTALL_DIR/"
     cp -r "$SCRIPT_DIR/public/" "$INSTALL_DIR/public/"
+    cp -r "$SCRIPT_DIR/pwa/" "$INSTALL_DIR/pwa/"
     systemctl restart "$SERVICE_NAME"
     sleep 1
     systemctl is-active --quiet "$SERVICE_NAME" && ok "更新完成" || error "更新后启动失败"

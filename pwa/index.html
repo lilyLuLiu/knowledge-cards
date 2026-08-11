@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="知识卡片">
+    <meta name="theme-color" content="#6c5ce7">
+    <title>知识卡片</title>
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="apple-touch-icon" href="icons/icon-192.png">
+    <style>
+        :root {
+            --primary: #6c5ce7;
+            --primary-dark: #5a4bd1;
+            --bg: #f5f6fa;
+            --text: #1f2937;
+            --border: #e5e7eb;
+        }
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        html, body {
+            margin: 0; padding: 0; height: 100%; width: 100%;
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Helvetica Neue", sans-serif;
+            background: var(--bg); color: var(--text);
+            overflow: hidden;
+        }
+
+        /* ── App iframe container ──
+           <iframe> is a replaced element, so it must have explicit width/height
+           or it collapses to the default 300x150. We subtract the iOS safe area
+           (notch / status bar on top, home indicator on bottom) so the in-app
+           header buttons stay tappable. */
+        #appFrame {
+            position: fixed;
+            top: env(safe-area-inset-top);
+            left: 0;
+            width: 100%;
+            height: calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+            border: 0; background: var(--bg);
+            display: none;
+        }
+        #appFrame.active { display: block; }
+
+        /* ── Setup screen ── */
+        #setupScreen {
+            position: fixed; inset: 0; display: flex; flex-direction: column;
+            align-items: center; justify-content: center; padding: 32px;
+            background: linear-gradient(160deg, #6c5ce7 0%, #8e7cf0 100%);
+            color: #fff; text-align: center;
+            padding-top: env(safe-area-inset-top);
+            padding-bottom: env(safe-area-inset-bottom);
+        }
+        #setupScreen.hidden { display: none; }
+        .setup-logo {
+            width: 84px; height: 84px; border-radius: 22px;
+            background: rgba(255,255,255,0.15); backdrop-filter: blur(10px);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 40px; margin-bottom: 20px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+        }
+        .setup-title { font-size: 24px; font-weight: 700; margin-bottom: 6px; }
+        .setup-sub { font-size: 14px; opacity: 0.85; margin-bottom: 36px; line-height: 1.5; }
+        .setup-card {
+            background: rgba(255,255,255,0.12); backdrop-filter: blur(20px);
+            border: 1px solid rgba(255,255,255,0.18);
+            border-radius: 18px; padding: 24px; width: 100%; max-width: 360px;
+        }
+        .setup-label { font-size: 13px; opacity: 0.9; margin-bottom: 8px; text-align: left; }
+        .setup-input {
+            width: 100%; padding: 14px 16px; border-radius: 12px; border: none;
+            font-size: 16px; background: rgba(255,255,255,0.95); color: var(--text);
+            outline: none; margin-bottom: 16px;
+        }
+        .setup-input:focus { box-shadow: 0 0 0 3px rgba(255,255,255,0.5); }
+        .setup-btn {
+            width: 100%; padding: 14px; border-radius: 12px; border: none;
+            background: #fff; color: var(--primary); font-size: 16px; font-weight: 700;
+            cursor: pointer; transition: transform 0.1s;
+        }
+        .setup-btn:active { transform: scale(0.97); }
+        .setup-hint { font-size: 12px; opacity: 0.7; margin-top: 14px; line-height: 1.5; }
+        .setup-error { color: #fde68a; font-size: 13px; margin-top: 10px; min-height: 18px; }
+
+        /* ── Settings gear (reconfigure) ── */
+        #settingsBtn {
+            position: fixed; top: calc(env(safe-area-inset-top) + 10px); right: 12px;
+            width: 38px; height: 38px; border-radius: 50%;
+            background: rgba(255,255,255,0.9); border: 1px solid var(--border);
+            display: none; align-items: center; justify-content: center;
+            font-size: 18px; cursor: pointer; z-index: 100;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        }
+        #settingsBtn.visible { display: flex; }
+
+        /* ── Loading spinner ── */
+        #loader {
+            position: fixed; inset: 0; display: none; align-items: center; justify-content: center;
+            background: var(--bg); z-index: 50;
+        }
+        #loader.active { display: flex; }
+        .spinner {
+            width: 40px; height: 40px; border: 4px solid var(--border);
+            border-top-color: var(--primary); border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+    <!-- App iframe -->
+    <iframe id="appFrame" allow="camera; microphone; geolocation" referrerpolicy="no-referrer"></iframe>
+
+    <!-- Loading -->
+    <div id="loader"><div class="spinner"></div></div>
+
+    <!-- Reconfigure button -->
+    <div id="settingsBtn" title="重新配置网址">⚙</div>
+
+    <!-- First-open setup screen -->
+    <div id="setupScreen">
+        <div class="setup-logo">🧠</div>
+        <div class="setup-title">知识卡片</div>
+        <div class="setup-sub">配置你的服务器地址<br>首次使用需要填写，之后将自动打开</div>
+        <div class="setup-card">
+            <div class="setup-label">服务器网址</div>
+            <input class="setup-input" id="urlInput" type="url" inputmode="url"
+                   placeholder="http://192.168.1.100:3000"
+                   autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+            <button class="setup-btn" id="saveBtn">保存并打开</button>
+            <div class="setup-error" id="setupError"></div>
+            <div class="setup-hint">例如：http://localhost:3000 或 https://cards.你的域名.com</div>
+        </div>
+    </div>
+
+    <script>
+        (function () {
+            const STORAGE_KEY = "kc_target_url";
+            const setupScreen = document.getElementById("setupScreen");
+            const appFrame = document.getElementById("appFrame");
+            const loader = document.getElementById("loader");
+            const settingsBtn = document.getElementById("settingsBtn");
+            const urlInput = document.getElementById("urlInput");
+            const saveBtn = document.getElementById("saveBtn");
+            const setupError = document.getElementById("setupError");
+
+            function normalizeUrl(raw) {
+                let u = (raw || "").trim();
+                if (!u) return "";
+                if (!/^https?:\/\//i.test(u)) u = "http://" + u;
+                // strip trailing slash
+                u = u.replace(/\/+$/, "");
+                return u;
+            }
+
+            function isValidUrl(u) {
+                try {
+                    const p = new URL(u);
+                    return p.protocol === "http:" || p.protocol === "https:";
+                } catch (e) {
+                    return false;
+                }
+            }
+
+            function saveAndOpen() {
+                const raw = urlInput.value;
+                const u = normalizeUrl(raw);
+                if (!isValidUrl(u)) {
+                    setupError.textContent = "请输入有效的网址（含 http:// 或 https://）";
+                    return;
+                }
+                setupError.textContent = "";
+                try {
+                    localStorage.setItem(STORAGE_KEY, u);
+                } catch (e) {}
+                openApp(u);
+            }
+
+            function openApp(u) {
+                setupScreen.classList.add("hidden");
+                loader.classList.add("active");
+                settingsBtn.classList.add("visible");
+                appFrame.classList.add("active");
+                // ensure exactly one slash between base and app path
+                const sep = u.endsWith("/") ? "" : "/";
+                // cache-bust via timestamp so the main app always loads fresh
+                appFrame.src = u + sep + "?from=pwa&_t=" + Date.now();
+                // hide loader once loaded (or after timeout fallback)
+                appFrame.onload = function () {
+                    loader.classList.remove("active");
+                };
+                setTimeout(function () {
+                    loader.classList.remove("active");
+                }, 4000);
+            }
+
+            function showSetup() {
+                appFrame.classList.remove("active");
+                loader.classList.remove("active");
+                settingsBtn.classList.remove("visible");
+                setupScreen.classList.remove("hidden");
+                urlInput.value = localStorage.getItem(STORAGE_KEY) || "";
+                urlInput.focus();
+            }
+
+            saveBtn.addEventListener("click", saveAndOpen);
+            urlInput.addEventListener("keydown", function (e) {
+                if (e.key === "Enter") saveAndOpen();
+            });
+            settingsBtn.addEventListener("click", function () {
+                if (confirm("重新配置服务器网址？")) showSetup();
+            });
+
+            // Boot
+            // Default suggestion: same-origin parent (works when PWA is served by the
+            // same node app under /pwa/). User can still enter a different server.
+            const parentOrigin = location.origin; // e.g. https://cards.你的域名.com
+            urlInput.placeholder = parentOrigin;
+
+            const saved = localStorage.getItem(STORAGE_KEY);
+            if (saved && isValidUrl(saved)) {
+                openApp(saved);
+            } else {
+                // pre-fill with same-origin so one tap "保存并打开" just works
+                urlInput.value = parentOrigin;
+                showSetup();
+            }
+
+            // Register service worker for offline shell + installability
+            if ("serviceWorker" in navigator) {
+                window.addEventListener("load", function () {
+                    navigator.serviceWorker.register("service-worker.js").catch(function (e) {
+                        console.log("SW register failed:", e);
+                    });
+                });
+            }
+
+            // Auto-refresh the iframe when the app returns to foreground
+            // so the main app is always up to date
+            var lastVisible = Date.now();
+            document.addEventListener("visibilitychange", function () {
+                if (document.visibilityState === "visible") {
+                    // Only reload if the iframe was loaded more than 30s ago
+                    // to avoid refreshing on every tab switch
+                    if (Date.now() - lastVisible > 30000 && appFrame.src) {
+                        appFrame.src = appFrame.src.replace(/&_t=\d+/, "") + "&_t=" + Date.now();
+                    }
+                } else {
+                    lastVisible = Date.now();
+                }
+            });
+        })();
+    </script>
+</body>
+</html>

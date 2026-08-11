@@ -4,6 +4,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>知识卡片 · 每日复习</title>
+<meta name="theme-color" content="#6c5ce7">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="知识卡片">
 <style>
 :root {
   --bg: #f5f6fa; --card-bg: #ffffff; --primary: #6c5ce7; --primary-light: #a29bfe;
@@ -58,6 +65,42 @@ body.dark { --bg:#1a1a2e; --card-bg:#16213e; --primary:#a29bfe; --primary-light:
 .btn-outline { background:transparent; border:2px solid var(--primary); color:var(--primary); }
 .btn-outline:hover { background:var(--primary); color:#fff; }
 .btn-sm { padding:6px 14px; font-size:13px; }
+
+/* Settings dropdown menu */
+.settings-menu { position:relative; }
+.settings-dropdown {
+  position:absolute;
+  top:calc(100% + 8px);
+  right:0;
+  min-width:160px;
+  background:var(--card);
+  border-radius:14px;
+  box-shadow:0 10px 30px rgba(0,0,0,0.15);
+  border:1px solid var(--border);
+  padding:8px;
+  display:none;
+  flex-direction:column;
+  gap:4px;
+  z-index:100;
+}
+.settings-dropdown.show { display:flex; }
+.settings-item {
+  width:100%;
+  padding:10px 14px;
+  border:none;
+  border-radius:10px;
+  background:transparent;
+  color:var(--text);
+  font-size:14px;
+  font-weight:600;
+  text-align:left;
+  cursor:pointer;
+  display:flex;
+  align-items:center;
+  gap:8px;
+  transition:all 0.15s;
+}
+.settings-item:hover { background:var(--bg); color:var(--primary); }
 
 /* Main */
 .main-content { padding:0 24px 80px; }
@@ -323,11 +366,16 @@ body.dark .md-code-inline { background:rgba(255,255,255,0.08); }
 <div class="main-content">
   <div class="action-bar">
     <div class="section-title" id="sectionTitle">全部卡片</div>
-    <div style="display:flex;gap:10px;flex-wrap:wrap;">
-      <button class="btn btn-outline" onclick="exportData()">📦 导出数据</button>
-      <button class="btn btn-outline" onclick="openImportModal()">📥 导入数据</button>
-      <button class="btn btn-outline" onclick="openExportModal()">📄 导出PDF</button>
-      <button class="btn btn-outline" onclick="openCategoryModal()">🗂️ 分类管理</button>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+      <div class="settings-menu" id="settingsMenu">
+        <button class="btn btn-outline" onclick="toggleSettingsMenu(event)">⚙️ 设置</button>
+        <div class="settings-dropdown" id="settingsDropdown">
+          <button class="settings-item" onclick="exportData(); closeSettingsMenu()">📦 导出数据</button>
+          <button class="settings-item" onclick="openImportModal(); closeSettingsMenu()">📥 导入数据</button>
+          <button class="settings-item" onclick="openExportModal(); closeSettingsMenu()">📄 导出 PDF</button>
+          <button class="settings-item" onclick="openCategoryModal(); closeSettingsMenu()">🗂️ 分类管理</button>
+        </div>
+      </div>
       <button class="btn btn-primary" onclick="openAddModal()">＋ 添加卡片</button>
     </div>
   </div>
@@ -561,11 +609,17 @@ async function doLogin() {
     } else {
       document.getElementById('loginError').textContent = data.error || '密码错误';
     }
-  } catch (e) { document.getElementById('loginError').textContent = '连接失败'; }
+    } catch (e) { document.getElementById('loginError').textContent = '连接失败'; }
 }
 
 async function init() {
   loadTheme();
+  // 注册 Service Worker（仅 HTTPS，PWA 安装与离线壳需要）
+  if (location.protocol === 'https:' && 'serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/sw.js').catch(() => {});
+    });
+  }
   try {
     const state = await api('GET', '/state');
     cards = state.cards || []; customCategories = state.customCategories || {};
@@ -820,6 +874,22 @@ function preserveAndRerender() {
   if (newResult) newResult.innerHTML = savedResult;
 }
 function closeModal() { document.getElementById('addModal').classList.remove('show'); editingId=null; }
+
+// ===== Settings dropdown =====
+function toggleSettingsMenu(event) {
+  event.stopPropagation();
+  const dropdown = document.getElementById('settingsDropdown');
+  dropdown.classList.toggle('show');
+}
+function closeSettingsMenu() {
+  document.getElementById('settingsDropdown').classList.remove('show');
+}
+document.addEventListener('click', function(event) {
+  const menu = document.getElementById('settingsMenu');
+  if (menu && !menu.contains(event.target)) {
+    closeSettingsMenu();
+  }
+});
 
 // ===== 分类管理 =====
 function openCategoryModal() {
