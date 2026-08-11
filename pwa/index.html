@@ -183,8 +183,9 @@
                 appFrame.classList.add("active");
                 // ensure exactly one slash between base and app path
                 const sep = u.endsWith("/") ? "" : "/";
-                // cache-bust via timestamp so the main app always loads fresh
-                appFrame.src = u + sep + "?from=pwa&_t=" + Date.now();
+                // Load the main app; cache is reused for instant open.
+                // (A fresh deploy is picked up by the service worker / browser cache.)
+                appFrame.src = u + sep + "?from=pwa";
                 // hide loader once loaded (or after timeout fallback)
                 appFrame.onload = function () {
                     loader.classList.remove("active");

@@ -239,7 +239,7 @@ const server = http.createServer((req, res) => {
           data.streak.lastDate = today;
         }
         saveData(data);
-        sendJSON(res, 200, { success: true, reviewLogs: data.reviewLogs, streak: data.streak });
+        sendJSON(res, 200, { success: true, streak: data.streak });
         return;
       }
 

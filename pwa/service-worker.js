@@ -1,10 +1,12 @@
 // Service Worker for PWA shell (enables install + offline bootstrap screen)
 // Version bump forces re-cache: change CACHE_NAME whenever shell files are updated
-const CACHE_NAME = "kc-pwa-v1";
+const CACHE_NAME = "kc-pwa-v2";
 const SHELL_FILES = [
   "./",
   "index.html",
-  "manifest.webmanifest"
+  "manifest.webmanifest",
+  "icon-192.png",
+  "icon-512.png"
 ];
 
 self.addEventListener("install", function (event) {
@@ -31,6 +33,13 @@ self.addEventListener("activate", function (event) {
   self.clients.claim();
 });
 
+// Business data API paths that must always be fresh (never served from cache)
+const API_PREFIXES = ["/api/"];
+
+function isApiRequest(url) {
+  return API_PREFIXES.some(function (p) { return url.pathname.indexOf(p) === 0; });
+}
+
 self.addEventListener("fetch", function (event) {
   const req = event.request;
   if (req.method !== "GET") return;
@@ -39,27 +48,28 @@ self.addEventListener("fetch", function (event) {
   // Only handle same-origin shell requests; the iframe loads the target app directly
   if (url.origin !== self.location.origin) return;
 
-  // Navigation: always try network first, fall back to cached shell
-  if (req.mode === "navigate") {
-    event.respondWith(
-      fetch(req).catch(function () {
-        return caches.match("index.html");
-      })
-    );
+  // Business data: always go to network, no caching (keeps data live)
+  if (isApiRequest(url)) {
+    event.respondWith(fetch(req));
     return;
   }
 
-  // Static assets: network-first (always try fresh, cache as fallback + update cache)
+  // Navigation + static shell assets: cache-first for instant load,
+  // fall back to network (and refresh cache) only if not in cache
   event.respondWith(
-    fetch(req).then(function (resp) {
-      // Update cache with fresh response for next offline use
-      if (resp.status === 200) {
-        var copy = resp.clone();
-        caches.open(CACHE_NAME).then(function (c) { c.put(req, copy); });
-      }
-      return resp;
-    }).catch(function () {
-      return caches.match(req);
+    caches.match(req).then(function (cached) {
+      if (cached) return cached;
+      return fetch(req).then(function (resp) {
+        if (resp.status === 200) {
+          var copy = resp.clone();
+          caches.open(CACHE_NAME).then(function (c) { c.put(req, copy); });
+        }
+        return resp;
+      }).catch(function () {
+        // Offline last-resort: serve the shell for navigations
+        if (req.mode === "navigate") return caches.match("index.html");
+        return new Response("", { status: 504, statusText: "offline" });
+      });
     })
   );
 });

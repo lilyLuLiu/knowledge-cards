@@ -6,7 +6,8 @@
 <title>知识卡片 · 每日复习</title>
 <meta name="theme-color" content="#6c5ce7">
 <link rel="manifest" href="manifest.webmanifest">
-<link rel="apple-touch-icon" href="icon.png">
+<link rel="icon" href="icon-64.png" type="image/png" sizes="64x64">
+<link rel="apple-touch-icon" href="icon-64.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -1604,8 +1605,10 @@ function editDistance(s1, s2) {
   return dp[m][n];
 }
 async function nextCard() {
-  try { const r = await api('POST','/review/'+reviewQueue[reviewIndex].id); reviewLogs=r.reviewLogs; streak=r.streak; } catch(e){}
+  const id = reviewQueue[reviewIndex].id;
+  // 先本地翻页，立即响应；复习记录后台静默同步，不阻塞点击
   reviewIndex++; renderReviewCard();
+  try { await api('POST','/review/'+id); } catch(e){}
 }
 function prevCard() { if(reviewIndex>0){reviewIndex--;renderReviewCard();} }
 function exitReview() { document.getElementById('reviewOverlay').classList.remove('show'); renderCards(); updateStats(); }
