@@ -30,10 +30,25 @@ const PWA_DIR = path.join(__dirname, 'pwa');
 // ===== Data Layer =====
 function loadData() {
   try {
-    return JSON.parse(fs.readFileSync(DATA_FILE, 'utf-8'));
+    const d = JSON.parse(fs.readFileSync(DATA_FILE, 'utf-8'));
+    if (!d.reviewHistory) d.reviewHistory = {};
+    if (!d.srsSettings) d.srsSettings = { fastMs: 3000, normalMs: 8000, slowMs: 15000, historyForPersonalization: 20 };
+    if (!d.cards) d.cards = [];
+    d.cards = d.cards.map(c => ensureSRFields(c));
+    return d;
   } catch (e) {
-    return { cards: [], customCategories: {}, reviewLogs: {}, streak: { count: 0, lastDate: null }, deletedDefaults: [] };
+    return { cards: [], customCategories: {}, reviewLogs: {}, streak: { count: 0, lastDate: null }, deletedDefaults: [], reviewHistory: {}, srsSettings: { fastMs: 3000, normalMs: 8000, slowMs: 15000, historyForPersonalization: 20 } };
   }
+}
+
+function ensureSRFields(card) {
+  if (card.difficulty == null) card.difficulty = 2.5;
+  if (card.interval == null) card.interval = 0;
+  if (card.nextReviewAt == null) card.nextReviewAt = 0;
+  if (card.lastReviewedAt == null) card.lastReviewedAt = 0;
+  if (card.repetitions == null) card.repetitions = 0;
+  if (card.srsLevel == null) card.srsLevel = 'new'; // new, learning, reviewing, mastered
+  return card;
 }
 function saveData(data) {
   fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2), 'utf-8');
@@ -238,8 +253,68 @@ const server = http.createServer((req, res) => {
           else data.streak.count = 1;
           data.streak.lastDate = today;
         }
+        // 如果前端传来 SRS 数据则更新卡片状态
+        if (parsed && parsed.srs) {
+          const card = data.cards.find(c => c.id === id);
+          if (card) {
+            ensureSRFields(card);
+            if (parsed.srs.difficulty != null) card.difficulty = parsed.srs.difficulty;
+            if (parsed.srs.interval != null) card.interval = parsed.srs.interval;
+            if (parsed.srs.nextReviewAt != null) card.nextReviewAt = parsed.srs.nextReviewAt;
+            if (parsed.srs.repetitions != null) card.repetitions = parsed.srs.repetitions;
+            if (parsed.srs.srsLevel) card.srsLevel = parsed.srs.srsLevel;
+            card.lastReviewedAt = Date.now();
+            // 记录复习历史
+            if (!data.reviewHistory[id]) data.reviewHistory[id] = [];
+            data.reviewHistory[id].push({
+              at: Date.now(),
+              correct: parsed.srs.correct,
+              responseMs: parsed.srs.responseMs,
+              actualDays: parsed.srs.actualDays,
+              baseScore: parsed.srs.baseScore,
+              finalScore: parsed.srs.finalScore,
+              quality: parsed.srs.quality,
+              newInterval: parsed.srs.interval,
+              newDifficulty: parsed.srs.difficulty,
+              mode: parsed.srs.mode || 'flip'
+            });
+            // 个性化阈值：累计足够历史样本后，用 P50 作为 normalMs，P25 作为 fastMs，P75 作为 slowMs
+            const allHist = Object.values(data.reviewHistory).flat().filter(h => h.correct);
+            if (allHist.length >= (data.srsSettings.historyForPersonalization || 20)) {
+              const rts = allHist.map(h => h.responseMs).sort((a, b) => a - b);
+              const p25 = rts[Math.floor(rts.length * 0.25)];
+              const p50 = rts[Math.floor(rts.length * 0.50)];
+              const p75 = rts[Math.floor(rts.length * 0.75)];
+              data.srsSettings.fastMs = Math.max(1500, Math.min(6000, p25));
+              data.srsSettings.normalMs = Math.max(4000, Math.min(12000, p50));
+              data.srsSettings.slowMs = Math.max(8000, Math.min(25000, p75));
+            }
+          }
+        }
         saveData(data);
-        sendJSON(res, 200, { success: true, streak: data.streak });
+        const respCard = data.cards.find(c => c.id === id);
+        sendJSON(res, 200, { success: true, streak: data.streak, srsSettings: data.srsSettings, card: respCard || null });
+        return;
+      }
+
+      // SRS 设置更新
+      if (pathname === '/api/srs/settings' && req.method === 'POST') {
+        const data = loadData();
+        if (!data.srsSettings) data.srsSettings = { fastMs: 3000, normalMs: 8000, slowMs: 15000, historyForPersonalization: 20 };
+        if (parsed.fastMs) data.srsSettings.fastMs = parsed.fastMs;
+        if (parsed.normalMs) data.srsSettings.normalMs = parsed.normalMs;
+        if (parsed.slowMs) data.srsSettings.slowMs = parsed.slowMs;
+        saveData(data);
+        sendJSON(res, 200, { success: true, srsSettings: data.srsSettings });
+        return;
+      }
+
+      // 复习历史查询
+      const histMatch = pathname.match(/^\/api\/srs\/history\/(\d+)$/);
+      if (histMatch && req.method === 'GET') {
+        const id = parseInt(histMatch[1]);
+        const data = loadData();
+        sendJSON(res, 200, { history: data.reviewHistory?.[id] || [] });
         return;
       }
 
@@ -254,8 +329,8 @@ const server = http.createServer((req, res) => {
         if (mode === 'merge') {
           const map = new Map(data.cards.map(c => [c.id, c]));
           imported.cards.forEach(c => {
-            if (map.has(c.id)) map.set(c.id, { ...map.get(c.id), ...c });
-            else map.set(c.id, c);
+            if (map.has(c.id)) map.set(c.id, ensureSRFields({ ...map.get(c.id), ...c }));
+            else map.set(c.id, ensureSRFields(c));
           });
           data.cards = [...map.values()];
           if (imported.customCategories) Object.assign(data.customCategories, imported.customCategories);
@@ -265,6 +340,15 @@ const server = http.createServer((req, res) => {
               imported.reviewLogs[d].forEach(id => set.add(id));
               data.reviewLogs[d] = [...set];
             });
+          }
+          if (imported.reviewHistory) {
+            if (!data.reviewHistory) data.reviewHistory = {};
+            Object.keys(imported.reviewHistory).forEach(cid => {
+              data.reviewHistory[cid] = [...(data.reviewHistory[cid] || []), ...(imported.reviewHistory[cid] || [])];
+            });
+          }
+          if (imported.srsSettings) {
+            data.srsSettings = { ...(data.srsSettings || {}), ...imported.srsSettings };
           }
           if (imported.deletedDefaults) {
             const set = new Set(data.deletedDefaults || []);
@@ -281,9 +365,11 @@ const server = http.createServer((req, res) => {
             }
           }
         } else {
-          data.cards = imported.cards;
+          data.cards = (imported.cards || []).map(c => ensureSRFields(c));
           data.customCategories = imported.customCategories || {};
           data.reviewLogs = imported.reviewLogs || {};
+          data.reviewHistory = imported.reviewHistory || {};
+          data.srsSettings = imported.srsSettings || { fastMs: 3000, normalMs: 8000, slowMs: 15000, historyForPersonalization: 20 };
           data.streak = imported.streak || { count: 0, lastDate: null };
           data.deletedDefaults = imported.deletedDefaults || [];
         }
