@@ -625,33 +625,39 @@ const SRS = {
     const { fastMs, normalMs, slowMs } = srsSettings;
 
     // ===== 第三步：计算基础分 =====
-    // 正确性给分
-    let baseScore = correct ? 60 : 20;
-    // 响应时间附加分 0-40（正确和错误两种情况的计分方式）
-    let timeBonus = 0;
+    // 正确性给分：答错的基础分必须显著低于"答对最慢"，让答错比"答得慢但对"严重得多
+    let baseScore;
     if (correct) {
-      // 正确情况：越快分越高
-      if (responseMs <= fastMs) timeBonus = 40;
+      baseScore = 60;
+      // 正确情况：越快分越高，最慢也要给 5 分（保证较弱≥65 分）
+      if (responseMs <= fastMs) baseScore += 40;
       else if (responseMs <= normalMs) {
         const r = (responseMs - fastMs) / (normalMs - fastMs);
-        timeBonus = Math.round(40 - r * 20); // 40 → 20
+        baseScore += Math.round(40 - r * 20); // 40 → 20
       } else if (responseMs <= slowMs) {
         const r = (responseMs - normalMs) / (slowMs - normalMs);
-        timeBonus = Math.round(20 - r * 15); // 20 → 5
+        baseScore += Math.round(20 - r * 15); // 20 → 5
       } else {
-        timeBonus = 5;
+        baseScore += 5;
       }
     } else {
-      // 错误情况：如果答得"快"，说明完全不会（还不如慢的仔细想过）；答得慢稍微给点附加分
-      if (responseMs <= fastMs) timeBonus = 0;
-      else if (responseMs <= normalMs) {
+      // 错误情况：先给一个很低的基础分 10，然后按"越慢答错越惨"扣分
+      // 语义：想了半天还是答错 → 比胡写答错更说明没记住 → 惩罚更重
+      baseScore = 10;
+      let timePenalty;
+      if (responseMs <= fastMs) {
+        timePenalty = 5; // 快速乱写：扣5 → 5分
+      } else if (responseMs <= normalMs) {
         const r = (responseMs - fastMs) / (normalMs - fastMs);
-        timeBonus = Math.round(r * 8); // 0 → 8
+        timePenalty = 5 + Math.round(r * 3); // 5 → 8
+      } else if (responseMs <= slowMs) {
+        const r = (responseMs - normalMs) / (slowMs - normalMs);
+        timePenalty = 8 + Math.round(r * 2); // 8 → 10
       } else {
-        timeBonus = 10;
+        timePenalty = 10; // 超时答错：扣光 → 0分
       }
+      baseScore = Math.max(0, baseScore - timePenalty); // 答错得分范围：0 ~ 5
     }
-    baseScore += timeBonus;
 
     // ===== 第四步：时间衰减修正 =====
     // 比较实际间隔与计划间隔
@@ -686,13 +692,14 @@ const SRS = {
     }
 
     // ===== 第六步：更新难度系数（1.3-3.0） =====
+    // 答错的惩罚必须显著重于"答对较弱"，让用户感觉答错会让卡片明显变得更难出现
     let difficulty = card.difficulty || 2.5;
     switch (quality) {
       case 'excellent': difficulty -= 0.15; break;
       case 'good':      difficulty -= 0.08; break;
       case 'weak':      difficulty += 0.02; break;
-      case 'forgot':    difficulty += 0.10; break;
-      case 'complete_forget': difficulty += 0.18; break;
+      case 'forgot':    difficulty += 0.20; break;   // 答错但不是秒答：比答对弱重 10 倍
+      case 'complete_forget': difficulty += 0.30; break; // 秒答错：惩罚最重
     }
     difficulty = Math.max(1.3, Math.min(3.0, +difficulty.toFixed(3)));
 
