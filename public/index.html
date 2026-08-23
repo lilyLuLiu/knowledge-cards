@@ -1630,18 +1630,40 @@ function confirmReview() {
   if (pool.length === 0) { showToast('选中分类没有可复习的卡片'); return; }
   const isAll = reviewCountMode === 'all';
   const maxCount = isAll ? 0 : (parseInt(reviewCountMode) || 0);
-  // SRS 排序 vs 传统排序
+  // SRS 开启时：仍尊重用户的顺序选择（随机/顺序），只是按"紧急度分层"保证越急越先整体出现
   if (reviewUseSRS) {
     const now = Date.now();
     pool.forEach(c => ensureSRS(c));
-    // 先按紧急度降序，紧急度相同则看难度（越难越靠前），再相同按创建时间旧→新
-    reviewQueue = [...pool].sort((a, b) => {
-      const u = SRS.urgency(b, now) - SRS.urgency(a, now);
-      if (u !== 0) return u;
-      const d = (b.difficulty || 2.5) - (a.difficulty || 2.5);
-      if (d !== 0) return d;
-      return (a.createdAt || 0) - (b.createdAt || 0);
-    });
+    if (reviewOrder === 'random') {
+      // ★ SRS + 随机：按紧急度分桶 → 桶内洗牌 → 再按桶顺序拼接
+      // 桶顺序：逾期(>100) / 今日到期+新卡片(50~99) / 未到期(<50)
+      const buckets = [[], [], []];
+      for (const c of pool) {
+        const u = SRS.urgency(c, now);
+        if (u >= 100) buckets[0].push(c);
+        else if (u >= 50) buckets[1].push(c);
+        else buckets[2].push(c);
+      }
+      reviewQueue = buckets.map(b => shuffle(b)).flat();
+    } else if (reviewOrder === 'sequential') {
+      // SRS + 顺序（新→旧）：先按紧急度（越急越前），再按难度（越难越前），最后按创建时间（新→旧）
+      reviewQueue = [...pool].sort((a, b) => {
+        const u = SRS.urgency(b, now) - SRS.urgency(a, now);
+        if (u !== 0) return u;
+        const d = (b.difficulty || 2.5) - (a.difficulty || 2.5);
+        if (d !== 0) return d;
+        return (b.createdAt || 0) - (a.createdAt || 0);
+      });
+    } else {
+      // 兜底：纯 SRS 排序
+      reviewQueue = [...pool].sort((a, b) => {
+        const u = SRS.urgency(b, now) - SRS.urgency(a, now);
+        if (u !== 0) return u;
+        const d = (b.difficulty || 2.5) - (a.difficulty || 2.5);
+        if (d !== 0) return d;
+        return (a.createdAt || 0) - (b.createdAt || 0);
+      });
+    }
   } else if (reviewOrder === 'random') {
     reviewQueue = shuffle([...pool]);
   } else if (reviewOrder === 'sequential') {
