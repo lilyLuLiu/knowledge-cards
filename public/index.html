@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>知识卡片 · 每日复习</title>
-<meta name="theme-color" content="#6c5ce7">
+<meta name="theme-color" content="#008f7a">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-64.png" type="image/png" sizes="64x64">
 <link rel="apple-touch-icon" href="icon-64.png">
@@ -14,15 +14,15 @@
 <meta name="apple-mobile-web-app-title" content="知识卡片">
 <style>
 :root {
-  --bg: #f5f6fa; --card-bg: #ffffff; --primary: #6c5ce7; --primary-light: #a29bfe;
-  --primary-dark: #5a4bd1; --text: #2d3436; --text-light: #636e72; --border: #dfe6e9;
-  --success: #00b894; --danger: #e17055; --warning: #fdcb6e;
-  --shadow: 0 4px 20px rgba(108,92,231,0.1); --shadow-hover: 0 8px 30px rgba(108,92,231,0.2);
-  --radius: 16px;
+  --bg: #e6f0ec; --card-bg: #fbfaf5; --primary: #008f7a; --primary-light: #5bb8a7;
+  --primary-dark: #007765; --text: #252a2d; --text-light: #66716f; --border: #d4e0dc;
+  --success: #008f7a; --danger: #c85d4b; --warning: #d99a45;
+  --shadow: 0 4px 18px rgba(35,72,65,0.08); --shadow-hover: 0 10px 28px rgba(35,72,65,0.13);
+  --radius: 14px;
 }
 * { margin:0; padding:0; box-sizing:border-box; }
 body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif; background:var(--bg); color:var(--text); min-height:100vh; transition:background 0.3s; }
-body.dark { --bg:#1a1a2e; --card-bg:#16213e; --primary:#a29bfe; --primary-light:#6c5ce7; --primary-dark:#a29bfe; --text:#f5f6fa; --text-light:#b2bec3; --border:#2d3436; --shadow:0 4px 20px rgba(0,0,0,0.3); --shadow-hover:0 8px 30px rgba(0,0,0,0.4); }
+body.dark { --bg:#182421; --card-bg:#202d2a; --primary:#57b9a7; --primary-light:#8bd2c4; --primary-dark:#7ac9ba; --text:#eef5f2; --text-light:#aebdb8; --border:#34443f; --shadow:0 4px 20px rgba(0,0,0,0.24); --shadow-hover:0 10px 30px rgba(0,0,0,0.32); }
 
 /* Login */
 .login-overlay { display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:var(--bg); z-index:5000; align-items:center; justify-content:center; }
@@ -74,7 +74,7 @@ body.dark { --bg:#1a1a2e; --card-bg:#16213e; --primary:#a29bfe; --primary-light:
   top:calc(100% + 8px);
   right:0;
   min-width:160px;
-  background:var(--card);
+  background:var(--card-bg);
   border-radius:14px;
   box-shadow:0 10px 30px rgba(0,0,0,0.15);
   border:1px solid var(--border);
@@ -109,41 +109,54 @@ body.dark { --bg:#1a1a2e; --card-bg:#16213e; --primary:#a29bfe; --primary-light:
 .section-title { font-size:20px; font-weight:700; }
 
 /* Display Filter Bar */
-.display-filter-bar { display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:16px; }
-.filter-group { display:flex; align-items:center; gap:6px; }
-.filter-label { font-size:13px; color:var(--text-light); font-weight:600; white-space:nowrap; }
-.filter-pills { display:flex; gap:4px; }
-.filter-pill { padding:4px 12px; border-radius:20px; font-size:12px; font-weight:600; cursor:pointer; border:1px solid var(--border); background:var(--card-bg); color:var(--text-light); transition:all 0.2s; white-space:nowrap; }
-.filter-pill:hover { border-color:var(--primary); color:var(--primary); }
-.filter-pill.active { background:var(--primary); color:#fff; border-color:var(--primary); }
-.filter-divider { width:1px; height:20px; background:var(--border); }
+.display-filter-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:18px; padding:10px 12px; background:var(--card-bg); border:1px solid var(--border); border-radius:12px; }
+.filter-group { display:flex; align-items:center; gap:7px; }
+.filter-label { font-size:12px; color:var(--text-light); font-weight:700; white-space:nowrap; }
+.filter-select { min-width:116px; padding:7px 30px 7px 10px; border:1px solid var(--border); border-radius:9px; background:var(--bg); color:var(--text); font-size:12px; font-weight:600; cursor:pointer; outline:none; transition:border-color .15s, box-shadow .15s; }
+.filter-select:hover, .filter-select:focus { border-color:var(--primary); box-shadow:0 0 0 3px rgba(0,143,122,.10); }
+.filter-divider { width:1px; height:24px; background:var(--border); margin:0 2px; }
+.filter-result-count { margin-left:auto; font-size:12px; color:var(--text-light); white-space:nowrap; }
 
 /* Cards */
 .card-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(280px, 1fr)); gap:16px; }
 .knowledge-card { background:var(--card-bg); border-radius:var(--radius); padding:20px; box-shadow:var(--shadow); transition:all 0.3s; border-left:4px solid var(--primary); position:relative; }
 .knowledge-card:hover { transform:translateY(-4px); box-shadow:var(--shadow-hover); }
-.knowledge-card.cat-english { border-left-color:#e17055; }
-.knowledge-card.cat-programming { border-left-color:#0984e3; }
-.knowledge-card.cat-math { border-left-color:#00b894; }
-.knowledge-card.cat-science { border-left-color:#fd79a8; }
-.knowledge-card.cat-history { border-left-color:#fdcb6e; }
-.knowledge-card.cat-language { border-left-color:#6c5ce7; }
-.knowledge-card.cat-other { border-left-color:#636e72; }
-.card-category { display:inline-block; padding:3px 12px; border-radius:20px; font-size:12px; font-weight:600; margin-bottom:10px; color:#fff; }
-.cat-english .card-category { background:#e17055; }
-.cat-programming .card-category { background:#0984e3; }
-.cat-math .card-category { background:#00b894; }
-.cat-science .card-category { background:#fd79a8; }
-.cat-history .card-category { background:#fdcb6e; color:#2d3436; }
-.cat-language .card-category { background:#6c5ce7; }
-.cat-other .card-category { background:#636e72; }
+.knowledge-card.cat-english { border-left-color:#c85d4b; }
+.knowledge-card.cat-programming { border-left-color:#3f8f86; }
+.knowledge-card.cat-math { border-left-color:#008f7a; }
+.knowledge-card.cat-science { border-left-color:#a46b7c; }
+.knowledge-card.cat-history { border-left-color:#c89b4a; }
+.knowledge-card.cat-language { border-left-color:#4f8f8a; }
+.knowledge-card.cat-other { border-left-color:#7b8985; }
+.card-category { display:none; padding:3px 12px; border-radius:20px; font-size:12px; font-weight:600; margin-bottom:10px; color:#fff; }
+.cat-english .card-category { background:#c85d4b; }
+.cat-programming .card-category { background:#3f8f86; }
+.cat-math .card-category { background:#008f7a; }
+.cat-science .card-category { background:#a46b7c; }
+.cat-history .card-category { background:#c89b4a; color:#252a2d; }
+.cat-language .card-category { background:#4f8f8a; }
+.cat-other .card-category { background:#7b8985; }
 .card-title { font-size:17px; font-weight:700; margin-bottom:8px; line-height:1.4; }
 .card-content { font-size:14px; color:var(--text-light); line-height:1.6; word-break:break-word; }
 .card-content.md-content { white-space:normal; }
 .card-content:not(.md-content) { white-space:pre-wrap; }
 .card-footer { display:flex; justify-content:space-between; align-items:center; margin-top:14px; padding-top:12px; border-top:1px solid var(--border); }
 .card-date { font-size:12px; color:var(--text-light); }
-.card-actions { display:flex; gap:8px; }
+.card-actions { display:flex; align-items:center; justify-content:flex-end; gap:8px; position:relative; }
+.card-menu { position:relative; }
+.card-menu-trigger { height:32px; min-width:76px; padding:0 11px; border:1px solid var(--border); border-radius:9px; background:var(--card-bg); color:var(--text); cursor:pointer; font-size:12px; font-weight:600; transition:all 0.18s; display:flex; align-items:center; justify-content:center; gap:5px; }
+.card-menu-trigger:hover, .card-menu-trigger[aria-expanded="true"] { border-color:var(--primary); background:var(--primary); color:#fff; }
+.card-menu-trigger .menu-chevron { font-size:10px; opacity:.75; transition:transform .18s; }
+.card-menu-trigger[aria-expanded="true"] .menu-chevron { transform:rotate(180deg); opacity:1; }
+.card-dropdown { position:absolute; right:0; bottom:calc(100% + 8px); width:188px; padding:6px; background:var(--card-bg); border:1px solid var(--border); border-radius:12px; box-shadow:0 12px 32px rgba(15,23,42,.14); z-index:80; display:none; }
+.card-dropdown.show { display:block; animation:cardMenuIn .14s ease-out; }
+.card-dropdown button { width:100%; border:0; background:transparent; color:var(--text); min-height:36px; padding:8px 10px; border-radius:8px; display:flex; align-items:center; gap:9px; text-align:left; font-size:13px; cursor:pointer; transition:background .15s, color .15s; }
+.card-dropdown button:hover { background:var(--bg); color:var(--primary); }
+.card-dropdown button.active { background:rgba(0,143,122,.10); color:var(--primary); font-weight:600; }
+.card-dropdown button.danger { color:var(--danger); }
+.card-dropdown button.danger:hover { background:rgba(214,48,49,.08); color:var(--danger); }
+.card-dropdown .menu-divider { height:1px; margin:5px 4px; background:var(--border); }
+@keyframes cardMenuIn { from { opacity:0; transform:translateY(4px) scale(.98); } to { opacity:1; transform:translateY(0) scale(1); } }
 .card-btn { width:32px; height:32px; border:none; border-radius:8px; background:var(--bg); color:var(--text-light); cursor:pointer; font-size:14px; transition:all 0.2s; display:flex; align-items:center; justify-content:center; }
 .card-btn:hover { background:var(--primary); color:#fff; }
 .speak-btn:hover { background:var(--success); color:#fff; }
@@ -154,33 +167,33 @@ body.dark { --bg:#1a1a2e; --card-bg:#16213e; --primary:#a29bfe; --primary-light:
 .flashcard-speak.playing { background:rgba(255,255,255,0.5); animation:pulse 0.6s infinite; }
 .mastered-btn { color:var(--text-light); }
 .mastered-btn.active { background:var(--success); color:#fff; }
-.knowledge-card.mastered { background:#f0eef7; }
-.knowledge-card.mastered .card-title { color:#9c95b8; }
-.knowledge-card.mastered .card-content { color:#b0a8c5; }
-.knowledge-card.mastered .card-date { color:#c4bdd5; }
+.knowledge-card.mastered { background:#edf3f0; }
+.knowledge-card.mastered .card-title { color:#7c8d88; }
+.knowledge-card.mastered .card-content { color:#879893; }
+.knowledge-card.mastered .card-date { color:#9aa9a5; }
 .knowledge-card.mastered .card-category { opacity:0.45; }
-body.dark .knowledge-card.mastered { background:#1e1d35; }
-body.dark .knowledge-card.mastered .card-title { color:#6a6580; }
-body.dark .knowledge-card.mastered .card-content { color:#555070; }
-body.dark .knowledge-card.mastered .card-date { color:#4a4565; }
-.mastered-badge { position:absolute; top:12px; right:12px; background:var(--success); color:#fff; font-size:10px; padding:2px 8px; border-radius:20px; font-weight:600; }
+body.dark .knowledge-card.mastered { background:#263732; }
+body.dark .knowledge-card.mastered .card-title { color:#78938a; }
+body.dark .knowledge-card.mastered .card-content { color:#71857e; }
+body.dark .knowledge-card.mastered .card-date { color:#61736d; }
+.mastered-badge { display:none; position:absolute; top:12px; right:12px; background:var(--success); color:#fff; font-size:10px; padding:2px 8px; border-radius:20px; font-weight:600; }
 .flashcard-mastered-tag { padding:4px 12px; border-radius:20px; font-size:12px; font-weight:600; margin-bottom:0; color:#fff; background:rgba(0,184,148,0.8); }
 .review-nav-btn.mastered-toggle { background:var(--card-bg); color:var(--text); box-shadow:var(--shadow); font-size:13px; }
 .review-nav-btn.mastered-toggle.active { background:var(--success); color:#fff; }
 .card-btn.delete:hover { background:var(--danger); }
-.review-badge { position:absolute; top:12px; right:78px; background:#0984e3; color:#fff; font-size:10px; padding:2px 8px; border-radius:20px; font-weight:600; }
-.important-badge { position:absolute; top:12px; right:144px; background:#fd7e14; color:#fff; font-size:10px; padding:2px 8px; border-radius:20px; font-weight:600; }
+ .review-badge { display:none; position:absolute; top:12px; right:78px; background:#3f8f86; color:#fff; font-size:10px; padding:2px 8px; border-radius:20px; font-weight:600; }
+ .important-badge { display:none; position:absolute; top:12px; right:144px; background:#d78b35; color:#fff; font-size:10px; padding:2px 8px; border-radius:20px; font-weight:600; }
 .flashcard-important-tag { padding:4px 12px; border-radius:20px; font-size:12px; font-weight:600; margin-bottom:0; color:#fff; background:rgba(253,126,20,0.8); }
 .review-nav-btn.important-toggle { background:var(--card-bg); color:var(--text); box-shadow:var(--shadow); font-size:13px; }
-.review-nav-btn.important-toggle.active { background:#fd7e14; color:#fff; }
-.card-btn.important-btn.active { background:#fd7e14; color:#fff; }
+.review-nav-btn.important-toggle.active { background:#d78b35; color:#fff; }
+.card-btn.important-btn.active { background:#d78b35; color:#fff; }
 /* SRS 记忆徽章 */
-.srs-badge { position:absolute; top:40px; right:12px; font-size:10px; padding:2px 8px; border-radius:20px; font-weight:600; color:#fff; }
-.srs-badge.overdue { background:#e17055; top:40px; }
-.srs-badge.today { background:#d63031; top:40px; }
-.srs-badge.soon { background:#0984e3; top:40px; }
-.srs-badge.later { background:#636e72; top:40px; }
-.srs-badge.new { background:#6c5ce7; top:40px; }
+.srs-badge { display:none; position:absolute; top:40px; right:12px; font-size:10px; padding:2px 8px; border-radius:20px; font-weight:600; color:#fff; }
+.srs-badge.overdue { background:#c85d4b; top:40px; }
+.srs-badge.today { background:#b94b42; top:40px; }
+.srs-badge.soon { background:#3f8f86; top:40px; }
+.srs-badge.later { background:#7b8985; top:40px; }
+.srs-badge.new { background:#4f8f8a; top:40px; }
 /* 当右侧存在其他徽章时，SRS 徽章自动下移到下一行，避免重叠 */
 .knowledge-card .important-badge + .review-badge + .mastered-badge + .srs-badge,
 .knowledge-card .important-badge + .srs-badge { top:40px; }
@@ -337,6 +350,359 @@ body.dark .md-code-inline { background:rgba(255,255,255,0.08); }
   .flashcard-title { font-size:20px; } .flashcard-content { font-size:15px; }
   .sync-indicator { display:none; }
 }
+
+/* =========================================================
+   2026 UI refresh — calmer, denser, more readable
+   ========================================================= */
+:root {
+  --bg:#e6f0ec;
+  --card-bg:#fbfaf5;
+  --primary:#008f7a;
+  --primary-light:#5bb8a7;
+  --primary-dark:#007765;
+  --text:#252a2d;
+  --text-light:#66716f;
+  --border:#d4e0dc;
+  --success:#008f7a;
+  --danger:#c85d4b;
+  --warning:#d99a45;
+  --shadow:0 1px 2px rgba(35,72,65,.04),0 8px 28px rgba(35,72,65,.07);
+  --shadow-hover:0 2px 4px rgba(35,72,65,.05),0 16px 40px rgba(35,72,65,.12);
+  --radius:14px;
+}
+body { background:linear-gradient(180deg,#e6f0ec 0%,#eaf2ef 36%,#f5f4ee 100%); color:var(--text); }
+body.dark {
+  --bg:#182421; --card-bg:#202d2a; --primary:#57b9a7; --primary-light:#8bd2c4; --primary-dark:#7ac9ba;
+  --text:#eef5f2; --text-light:#aebdb8; --border:#34443f;
+  --shadow:0 1px 2px rgba(0,0,0,.22),0 8px 28px rgba(0,0,0,.18);
+  --shadow-hover:0 2px 4px rgba(0,0,0,.26),0 18px 44px rgba(0,0,0,.28);
+}
+body.dark { background:linear-gradient(180deg,#182421 0%,#1b2925 45%,#18211f 100%); }
+.header {
+  height:64px; padding:10px max(20px,calc((100vw - 1440px)/2 + 20px));
+  border-bottom:1px solid var(--border); box-shadow:0 1px 10px rgba(35,72,65,.05);
+  backdrop-filter:blur(18px); background:color-mix(in srgb,var(--card-bg) 90%,transparent);
+}
+.logo { font-size:18px; letter-spacing:-.02em; color:var(--text); }
+.logo-icon { width:34px;height:34px;border-radius:10px;background:linear-gradient(135deg,var(--primary),var(--primary-light));display:grid;place-items:center;font-size:19px;box-shadow:0 5px 14px rgba(0,143,122,.18); }
+.logo > span:nth-child(2) { color:var(--text); }
+.sync-indicator { font-weight:500; border:1px solid var(--border); }
+.header-actions { gap:8px; }
+.btn-icon { width:36px;height:36px;border-radius:10px;background:transparent;color:var(--text-light); }
+.btn-icon:hover { transform:none;background:var(--bg);color:var(--primary); }
+.btn { border-radius:10px; padding:9px 16px; font-size:14px; }
+.btn-primary { box-shadow:0 4px 12px rgba(0,143,122,.16); }
+.btn-primary:hover { box-shadow:0 7px 18px rgba(0,143,122,.18); }
+.stats-bar {
+  max-width:1440px; margin:0 auto; padding:20px 24px 14px; gap:10px;
+  display:grid; grid-template-columns:repeat(6,1fr);
+}
+.stat-card {
+  min-width:0; padding:14px 16px; border:1px solid var(--border); box-shadow:none;
+  border-radius:12px; text-align:left; background:color-mix(in srgb,var(--card-bg) 92%,var(--bg));
+}
+.stat-card:hover { border-color:color-mix(in srgb,var(--primary) 28%,var(--border)); }
+.stat-number { font-size:24px; line-height:1.1; letter-spacing:-.03em; }
+.stat-label { font-size:12px; margin-top:7px; }
+.tabs {
+  max-width:1440px; margin:0 auto; padding:4px 24px 14px; gap:6px;
+  flex-wrap:nowrap; scrollbar-width:none;
+}
+.tabs::-webkit-scrollbar { display:none; }
+.tab { border:0; border-radius:9px; padding:8px 13px; background:transparent; font-size:13px; color:var(--text-light); }
+.tab:hover { background:var(--bg); border-color:transparent; }
+.tab.active { background:var(--text); color:var(--card-bg); border-color:transparent; }
+body.dark .tab.active { background:#f3f7f5;color:#252a2d; }
+.tab-count { padding:1px 6px; font-size:11px; background:rgba(0,143,122,.09); }
+.main-content { max-width:1440px; margin:0 auto; padding:4px 24px 80px; }
+.action-bar { margin:0 0 14px; gap:12px; }
+.section-title { font-size:19px; letter-spacing:-.02em; }
+.action-tools { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+.search-box {
+  width:min(360px,42vw); height:38px; display:flex; align-items:center; gap:8px;
+  padding:0 10px; border:1px solid var(--border); border-radius:10px;
+  background:var(--card-bg); color:var(--text-light); transition:.2s;
+}
+.search-box:focus-within { border-color:var(--primary-light); box-shadow:0 0 0 3px rgba(0,143,122,.10); }
+.search-icon { font-size:21px; line-height:1; transform:rotate(-20deg); }
+.search-box input { min-width:0; flex:1; border:0; outline:0; background:transparent;color:var(--text);font:inherit;font-size:13px; }
+.search-box input::placeholder { color:#8c9894; }
+.search-box kbd { font:11px -apple-system,BlinkMacSystemFont,sans-serif;padding:2px 6px;border:1px solid var(--border);border-radius:5px;color:var(--text-light);background:var(--bg); }
+.settings-menu { position:relative; }
+.settings-dropdown { background:var(--card-bg); min-width:190px; border:1px solid var(--border); box-shadow:var(--shadow-hover); }
+.settings-item { font-size:13px; font-weight:500; }
+.display-filter-bar {
+  margin:0 0 18px; padding:8px 10px; gap:8px; border:1px solid var(--border); border-radius:12px;
+  background:var(--card-bg); width:100%; max-width:none; box-shadow:0 1px 3px rgba(35,72,65,.04);
+}
+.filter-group { gap:6px; }
+.filter-label { display:none; }
+.filter-divider { width:1px;height:22px;margin:0 2px;background:var(--border); }
+.filter-select { min-width:112px; height:32px; }
+.filter-result-count { margin-left:auto; }
+.card-grid { grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:14px; }
+.knowledge-card {
+  min-height:210px; padding:18px; border:1px solid var(--border); border-left:3px solid var(--primary);
+  border-radius:13px; box-shadow:none; background:var(--card-bg); animation:cardIn .22s ease both;
+}
+.knowledge-card:hover { transform:translateY(-2px); box-shadow:var(--shadow-hover); border-color:#cbdad5; }
+.card-category { padding:4px 9px; border-radius:6px; font-size:11px; margin-bottom:12px; }
+.card-title { font-size:16px; line-height:1.45; margin-bottom:9px; letter-spacing:-.01em; }
+.card-content { font-size:13.5px; line-height:1.7; display:-webkit-box;-webkit-line-clamp:7;-webkit-box-orient:vertical;overflow:hidden; }
+.card-footer { margin-top:16px; padding-top:11px; }
+.card-date { font-size:11px; }
+.card-actions { gap:4px; }
+.card-menu-trigger { min-width:68px; height:30px; padding:0 9px; }
+.card-dropdown { width:176px; }
+.card-btn { width:30px;height:30px;border-radius:8px;font-size:13px; }
+.mastered-badge,.important-badge,.review-badge,.srs-badge { font-size:9px; padding:3px 7px; }
+.knowledge-card.mastered { opacity:.68; background:var(--card-bg); }
+.knowledge-card.mastered:hover { opacity:.9; }
+.empty-state { padding:90px 20px; }
+.empty-state-icon { width:64px;height:64px;margin:0 auto 18px;border-radius:18px;display:grid;place-items:center;background:var(--bg);font-size:30px; }
+.empty-state-text { font-size:15px; margin-bottom:18px; }
+.modal-overlay { background:rgba(10,12,20,.48); backdrop-filter:blur(3px); }
+.modal { max-width:560px; padding:26px; border:1px solid var(--border); box-shadow:0 24px 80px rgba(10,15,30,.22); }
+.modal-title { font-size:20px; margin-bottom:18px; }
+.form-group { margin-bottom:15px; }
+.form-label { font-size:13px; }
+.form-input,.form-textarea,.form-select { border:1px solid var(--border); border-radius:9px; padding:10px 12px; }
+.form-input:focus,.form-textarea:focus,.form-select:focus { box-shadow:0 0 0 3px rgba(0,143,122,.10); }
+.review-overlay { background:var(--bg); }
+.review-header { height:64px; padding:10px 24px; border-bottom:1px solid var(--border); box-shadow:none; }
+.review-body { padding:28px 20px 42px; }
+.flashcard { max-width:680px; margin-bottom:20px; }
+.flashcard-front,.flashcard-back { border-radius:18px; padding:42px; box-shadow:var(--shadow); }
+.flashcard-front { border:1px solid var(--border); }
+.review-controls { gap:8px; }
+.review-nav-btn { border-radius:10px; padding:11px 24px; font-size:14px; }
+.toast { bottom:24px; padding:10px 18px; font-size:13px; border-radius:10px; }
+@keyframes cardIn { from {opacity:0;transform:translateY(5px)} to {opacity:1;transform:translateY(0)} }
+
+@media (max-width:900px) {
+  .stats-bar { grid-template-columns:repeat(3,1fr); }
+  .search-box { width:300px; }
+}
+@media (max-width:600px) {
+  .header { height:58px;padding:9px 14px; }
+  .logo { font-size:16px; }
+  .logo-icon { width:31px;height:31px;font-size:17px; }
+  .header-actions .btn-primary { padding:8px 10px; font-size:12px; }
+  .stats-bar { grid-template-columns:repeat(3,1fr);padding:14px 14px 10px;gap:7px; }
+  .stat-card { padding:10px 11px;border-radius:10px; }
+  .stat-number { font-size:19px; }
+  .stat-label { font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
+  .tabs { padding:4px 14px 12px; }
+  .main-content { padding:2px 14px 60px; }
+  .action-bar { align-items:stretch; }
+  .section-title { width:100%; }
+  .action-tools { width:100%; }
+  .search-box { width:100%; order:2; }
+  .action-tools .settings-menu { order:1; }
+  .action-tools + .btn-primary { flex:1; justify-content:center; }
+  .display-filter-bar { width:100%; overflow-x:auto; }
+  .card-grid { grid-template-columns:1fr;gap:10px; }
+  .knowledge-card { min-height:0; }
+  .card-content { -webkit-line-clamp:6; }
+  .modal { padding:20px;border-radius:16px; }
+}
+
+
+/* Card detail + unified card geometry */
+.knowledge-card {
+  height:278px;
+  min-height:278px;
+  box-sizing:border-box;
+  display:flex;
+  flex-direction:column;
+  cursor:pointer;
+  overflow:visible;
+}
+.knowledge-card .card-title {
+  min-height:46px;
+  max-height:46px;
+  overflow:hidden;
+  display:-webkit-box;
+  -webkit-line-clamp:2;
+  -webkit-box-orient:vertical;
+}
+.knowledge-card .card-content {
+  height:119px;
+  min-height:119px;
+  max-height:119px;
+  overflow:hidden;
+  -webkit-line-clamp:5;
+  flex:0 0 119px;
+}
+.knowledge-card .card-footer {
+  margin-top:auto;
+  min-height:45px;
+  box-sizing:border-box;
+}
+.knowledge-card .card-actions,
+.knowledge-card .card-menu,
+.knowledge-card .card-menu-trigger,
+.knowledge-card .card-dropdown { cursor:pointer; }
+.card-detail-overlay { z-index:1200; }
+.card-detail-modal {
+  width:min(820px, calc(100vw - 32px));
+  max-width:820px;
+  max-height:min(86vh, 820px);
+  padding:0;
+  overflow:hidden;
+  display:flex;
+  flex-direction:column;
+}
+.card-detail-head {
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:18px;
+  padding:24px 26px 18px;
+  border-bottom:1px solid var(--border);
+}
+.card-detail-title {
+  margin:0;
+  font-size:24px;
+  line-height:1.35;
+  letter-spacing:-.02em;
+  word-break:break-word;
+}
+.card-detail-close {
+  flex:0 0 auto;
+  width:34px;height:34px;border:1px solid var(--border);border-radius:9px;
+  background:var(--bg);color:var(--text-light);cursor:pointer;font-size:18px;
+  display:grid;place-items:center;
+}
+.card-detail-close:hover { background:var(--text); color:var(--card-bg); }
+.card-detail-body {
+  padding:24px 26px 28px;
+  overflow:auto;
+  min-height:0;
+}
+.card-detail-content {
+  font-size:15px;
+  line-height:1.85;
+  color:var(--text);
+  word-break:break-word;
+}
+.card-detail-meta {
+  display:flex;
+  align-items:center;
+  gap:10px;
+  flex-wrap:wrap;
+  margin-top:24px;
+  padding-top:15px;
+  border-top:1px solid var(--border);
+  color:var(--text-light);
+  font-size:12px;
+}
+.card-detail-meta span + span::before { content:'·'; margin-right:10px; color:var(--border); }
+.card-detail-actions {
+  display:flex;
+  justify-content:flex-end;
+  gap:8px;
+  padding:14px 26px;
+  border-top:1px solid var(--border);
+  background:color-mix(in srgb,var(--card-bg) 92%,var(--bg));
+}
+@media (max-width:600px) {
+  .knowledge-card { height:250px; min-height:250px; }
+  .knowledge-card .card-title { min-height:43px; max-height:43px; }
+  .knowledge-card .card-content { height:100px; min-height:100px; max-height:100px; flex-basis:100px; -webkit-line-clamp:4; }
+  .card-detail-modal { width:calc(100vw - 20px); max-height:90vh; border-radius:16px; }
+  .card-detail-head { padding:20px 18px 15px; }
+  .card-detail-title { font-size:20px; }
+  .card-detail-body { padding:20px 18px 24px; }
+  .card-detail-actions { padding:12px 18px; }
+}
+
+
+/* =========================================================
+   2026-08 compact four-column knowledge grid
+   ========================================================= */
+:root { --page-max: 1240px; }
+
+.stats-bar,
+.tabs,
+.main-content {
+  width: min(calc(100% - 48px), var(--page-max));
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.stats-bar {
+  margin-top: 30px;
+}
+
+.tabs {
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.main-content {
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.card-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.knowledge-card {
+  height: 268px;
+  min-height: 268px;
+  padding: 20px 20px 17px;
+  border-radius: 14px;
+}
+
+.knowledge-card::before {
+  left: 20px;
+  right: 20px;
+}
+
+.knowledge-card .card-title {
+  min-height: 46px;
+  max-height: 46px;
+  margin-bottom: 9px;
+  font-size: 18px;
+}
+
+.knowledge-card .card-content {
+  height: 105px;
+  min-height: 105px;
+  max-height: 105px;
+  flex-basis: 105px;
+  font-size: 13.5px;
+  line-height: 1.65;
+}
+
+.knowledge-card .card-footer {
+  min-height: 48px;
+  padding-top: 10px;
+}
+
+@media (max-width: 1100px) {
+  .card-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+@media (max-width: 900px) {
+  .card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 680px) {
+  .stats-bar,
+  .tabs,
+  .main-content {
+    width: calc(100% - 28px);
+  }
+  .stats-bar { margin-top: 18px; }
+  .tabs { padding-left: 0; padding-right: 0; }
+  .card-grid { grid-template-columns: 1fr; gap: 14px; }
+  .knowledge-card { height: 268px; min-height: 268px; }
+}
+
 </style>
 </head>
 <body>
@@ -380,7 +746,12 @@ body.dark .md-code-inline { background:rgba(255,255,255,0.08); }
 <div class="main-content">
   <div class="action-bar">
     <div class="section-title" id="sectionTitle">全部卡片</div>
-    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+    <div class="action-tools">
+      <label class="search-box" aria-label="搜索知识卡片">
+        <span class="search-icon">⌕</span>
+        <input id="cardSearch" type="search" placeholder="搜索标题、内容…" autocomplete="off">
+        <kbd>⌘ K</kbd>
+      </label>
       <div class="settings-menu" id="settingsMenu">
         <button class="btn btn-outline" onclick="toggleSettingsMenu(event)">⚙️ 设置</button>
         <div class="settings-dropdown" id="settingsDropdown">
@@ -390,35 +761,50 @@ body.dark .md-code-inline { background:rgba(255,255,255,0.08); }
           <button class="settings-item" onclick="openCategoryModal(); closeSettingsMenu()">🗂️ 分类管理</button>
         </div>
       </div>
+      </div>
       <button class="btn btn-primary" onclick="openAddModal()">＋ 添加卡片</button>
     </div>
   </div>
-  <div class="display-filter-bar">
+  <div class="display-filter-bar" aria-label="卡片筛选">
     <div class="filter-group">
-      <span class="filter-label">显示</span>
-      <div class="filter-pills">
-        <span class="filter-pill active" data-mastered-filter="all" onclick="setDisplayFilter('all')">📋 全部</span>
-        <span class="filter-pill" data-mastered-filter="unmastered" onclick="setDisplayFilter('unmastered')">❌ 未学会</span>
-        <span class="filter-pill" data-mastered-filter="mastered" onclick="setDisplayFilter('mastered')">✅ 已学会</span>
-      </div>
+      <span class="filter-label">学习状态</span>
+      <select class="filter-select" id="masteredFilterSelect" onchange="setDisplayFilter(this.value)">
+        <option value="all">📋 全部</option>
+        <option value="unmastered">○ 未学会</option>
+        <option value="mastered">✓ 已学会</option>
+      </select>
     </div>
     <div class="filter-divider"></div>
     <div class="filter-group">
       <span class="filter-label">重点</span>
-      <div class="filter-pills">
-        <span class="filter-pill active" data-important-filter="all" onclick="setImportantFilter('all')">📋 全部</span>
-        <span class="filter-pill" data-important-filter="important" onclick="setImportantFilter('important')">⭐ 重点</span>
-        <span class="filter-pill" data-important-filter="normal" onclick="setImportantFilter('normal')">📭 非重点</span>
-      </div>
+      <select class="filter-select" id="importantFilterSelect" onchange="setImportantFilter(this.value)">
+        <option value="all">全部</option>
+        <option value="important">⭐ 重点</option>
+        <option value="normal">普通</option>
+      </select>
+    </div>
+    <div class="filter-divider"></div>
+    <div class="filter-group">
+      <span class="filter-label">复习</span>
+      <select class="filter-select" id="reviewFilterSelect" onchange="setReviewFilter(this.value)">
+        <option value="all">全部</option>
+        <option value="due">⏰ 待复习</option>
+        <option value="overdue">🔴 已过期</option>
+        <option value="today">📌 今日到期</option>
+        <option value="upcoming">⏳ 后续</option>
+        <option value="reviewedToday">✓ 今日已复习</option>
+        <option value="new">🆕 待开始</option>
+      </select>
     </div>
     <div class="filter-divider"></div>
     <div class="filter-group">
       <span class="filter-label">排序</span>
-      <div class="filter-pills">
-        <span class="filter-pill active" data-sort-order="desc" onclick="setSortOrder('desc')">🆕 新→旧</span>
-        <span class="filter-pill" data-sort-order="asc" onclick="setSortOrder('asc')">📜 旧→新</span>
-      </div>
+      <select class="filter-select" id="sortOrderSelect" onchange="setSortOrder(this.value)">
+        <option value="desc">🆕 新 → 旧</option>
+        <option value="asc">📜 旧 → 新</option>
+      </select>
     </div>
+    <span class="filter-result-count" id="filterResultCount"></span>
   </div>
   <div class="card-grid" id="cardGrid"></div>
   <div class="empty-state" id="emptyState" style="display:none;">
@@ -446,6 +832,24 @@ body.dark .md-code-inline { background:rgba(255,255,255,0.08); }
     <div class="form-group"><label class="form-label">标题 / 问题</label><input type="text" class="form-input" id="cardTitle" placeholder="例如：什么是闭包？" maxlength="200"></div>
     <div class="form-group"><label class="form-label">内容 / 答案 <span style="font-size:11px;color:var(--text-light);font-weight:400;">（支持 Markdown：# 标题、**粗体**、`代码`、- 列表、> 引用等）</span></label><textarea class="form-textarea" id="cardContent" placeholder="输入知识点详细内容..." maxlength="2000"></textarea></div>
     <div class="modal-actions"><button class="btn btn-outline" onclick="closeModal()">取消</button><button class="btn btn-primary" onclick="saveCard()">保存</button></div>
+  </div>
+</div>
+
+<div class="modal-overlay card-detail-overlay" id="cardDetailModal" onclick="if(event.target===this) closeCardDetail()">
+  <div class="modal card-detail-modal" role="dialog" aria-modal="true" aria-labelledby="cardDetailTitle">
+    <div class="card-detail-head">
+      <h2 class="card-detail-title" id="cardDetailTitle"></h2>
+      <button class="card-detail-close" type="button" onclick="closeCardDetail()" aria-label="关闭">✕</button>
+    </div>
+    <div class="card-detail-body">
+      <div class="card-detail-content md-content" id="cardDetailContent"></div>
+      <div class="card-detail-meta" id="cardDetailMeta"></div>
+    </div>
+    <div class="card-detail-actions">
+      <button class="btn btn-outline" type="button" id="cardDetailSpeakBtn">🔊 朗读</button>
+      <button class="btn btn-outline" type="button" id="cardDetailEditBtn">✏️ 编辑</button>
+      <button class="btn btn-primary" type="button" onclick="closeCardDetail()">完成</button>
+    </div>
   </div>
 </div>
 
@@ -594,10 +998,11 @@ body.dark .md-code-inline { background:rgba(255,255,255,0.08); }
 <div class="toast" id="toast"></div>
 
 <script>
-const defaultCategories = { english:{name:'英语',color:'#e17055'}, programming:{name:'编程',color:'#0984e3'}, math:{name:'数学',color:'#00b894'}, science:{name:'科学',color:'#fd79a8'}, history:{name:'历史',color:'#fdcb6e'}, language:{name:'语言',color:'#6c5ce7'}, other:{name:'其他',color:'#636e72'} };
+const defaultCategories = { english:{name:'英语',color:'#c85d4b'}, programming:{name:'编程',color:'#3f8f86'}, math:{name:'数学',color:'#008f7a'}, science:{name:'科学',color:'#a46b7c'}, history:{name:'历史',color:'#c89b4a'}, language:{name:'语言',color:'#4f8f8a'}, other:{name:'其他',color:'#7b8985'} };
 let cards=[], customCategories={}, reviewLogs={}, streak={count:0,lastDate:null}, deletedDefaults=[];
 let currentFilter='all', editingId=null, reviewQueue=[], reviewIndex=0;
-let displayMasteredFilter='all', displayImportantFilter='all', sortMode='desc';
+let displayMasteredFilter='all', displayImportantFilter='all', displayReviewFilter='all', sortMode='desc';
+let cardSearchQuery='';
 let reviewMode='flip';
 // ===== SRS 记忆曲线状态 =====
 let srsSettings = { fastMs: 3000, normalMs: 8000, slowMs: 15000 }; // 响应时间阈值
@@ -875,10 +1280,38 @@ function toggleTheme() {
   localStorage.setItem('kc_theme', isDark ? 'dark' : 'light');
   document.getElementById('themeBtn').textContent = isDark ? '☀️' : '🌙';
 }
-function getCategoryInfo(k) { return defaultCategories[k] || customCategories[k] || {name:k,color:'#636e72'}; }
+function getCategoryInfo(k) { return defaultCategories[k] || customCategories[k] || {name:k,color:'#7b8985'}; }
+
+/* ===== 快速搜索 ===== */
+function initCardSearch() {
+  const input = document.getElementById('cardSearch');
+  if (!input) return;
+  input.addEventListener('input', () => {
+    cardSearchQuery = input.value.trim();
+    renderCards();
+  });
+  document.addEventListener('keydown', (e) => {
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+      e.preventDefault();
+      input.focus();
+      input.select();
+    }
+    if (e.key === 'Escape' && document.activeElement === input) {
+      input.value = '';
+      cardSearchQuery = '';
+      input.blur();
+      renderCards();
+    }
+  });
+}
+
 
 /* ===== 语音发音 ===== */
 let synth = window.speechSynthesis || null;
+const _isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent) ||
+  (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const _isChrome = /Chrome|Chromium|CriOS/i.test(navigator.userAgent) && !/Edg/i.test(navigator.userAgent);
+const _isSafari = /^((?!chrome|android|crios|fxios|edgios).)*safari/i.test(navigator.userAgent) || _isIOS;
 let _voicesReady = false;
 let _speakSeq = 0; // 用于取消过期的补发定时器，避免两次发音叠加
 function _warmVoices() {
@@ -984,14 +1417,16 @@ function pickVoice(isEnglish) {
   zhAny.sort((a,b) => _voiceQualityScore(b) - _voiceQualityScore(a));
   return zhAny[0] || null;
 }
-function speak(text, isEnglish, btn) {
+function speakDesktop(text, isEnglish, btn) {
+  // Chrome/Chromium: 保持旧版已验证清晰的 TTS 行为。
+  // 不复用 iOS 的分段队列，也不改变旧版的 voice/rate 选择策略。
   if (!synth) { showToast('当前浏览器不支持语音播放'); return; }
   _warmVoices();
   const cleanText = stripMarkdownForSpeech(text);
   if (!cleanText) return;
   const seq = ++_speakSeq;
   const clearBtn = () => {
-    if (seq !== _speakSeq) return; // 已经被新一轮发音覆盖，不再操作 UI
+    if (seq !== _speakSeq) return;
     document.querySelectorAll('.speak-btn.playing,.flashcard-speak.playing,.recall-speak.playing,.dictation-play-btn.playing')
       .forEach(b => b.classList.remove('playing'));
   };
@@ -1000,69 +1435,86 @@ function speak(text, isEnglish, btn) {
       .forEach(b => b.classList.remove('playing'));
     if (btn) btn.classList.add('playing');
   };
-  // 取消旧的 + 短延迟（macOS Safari cancel 与 speak 同帧调用有状态竞争，会导致声音破音嘶哑）
+
   try { synth.cancel(); } catch(e) {}
+
   const _doSpeak = () => {
-    if (seq !== _speakSeq) return; // 用户又点了新的一次 → 过期
+    if (seq !== _speakSeq) return;
     const u = new SpeechSynthesisUtterance(cleanText);
-    // ★ 关键：不要显式设置 pitch / volume！
-    // macOS 的高级/增强/神经网络音色只有在 pitch 和 volume 都为默认(undefined)时才会启用；
-    // 一旦显式设 pitch=1.0 或 volume=1.0 就会回退到老旧压缩合成引擎，声音立刻变嘶哑。
-    // 只设置 lang 与轻量 rate（保持 1.0 避免重采样）
-    if (isEnglish) {
-      u.lang = 'en-US';
-      u.rate = 1.0;
-    } else {
-      u.lang = 'zh-CN';
-      u.rate = 1.0;
-    }
+    // 关键：恢复旧版 Chrome 参数。只设置语言和 rate，不设置 pitch/volume。
+    u.lang = isEnglish ? 'en-US' : 'zh-CN';
+    u.rate = 1.0;
     const v = pickVoice(isEnglish);
     if (v) u.voice = v;
     u.onend = clearBtn;
-    u.onerror = (e) => { clearBtn(); };
+    u.onerror = clearBtn;
     addBtn();
-    try { synth.speak(u); } catch(e) {}
-    // Safari 长文本 15 秒后静默 BUG 兜底：如果发现还卡在 speaking 没 onend，轻拍一下 resume
-    setTimeout(() => {
-      try {
-        if (synth && synth.speaking && !synth.paused && seq === _speakSeq) synth.pause(), synth.resume();
-      } catch(e) {}
-    }, 10000);
+    try { synth.speak(u); } catch(e) { clearBtn(); }
   };
+
+  // 保留旧版的短延迟，避免 cancel() 与 speak() 同一事件循环产生状态竞争。
   setTimeout(_doSpeak, 15);
-  // 兜底：280ms 后若语音列表还是没就绪且实际没在播放，再试一次（通常那时 voices 已经加载好了）
+
+  // 仅保留旧版的 voices 初始化兜底；不重复播放、不重新拆分文本。
   setTimeout(() => {
-    if (seq !== _speakSeq) return;
-    if (!synth) return;
+    if (seq !== _speakSeq || !synth) return;
     try {
-      const pending = synth.speaking || synth.paused;
-      if (pending) return; // 已经在播了，不需要补发
+      if (synth.speaking || synth.paused) return;
       _warmVoices();
       const v = pickVoice(isEnglish);
-      if (!v && !_voicesReady) return; // 还是没好，放弃
-      // 重新取消 + 再发一次（更稳）
+      if (!v && !_voicesReady) return;
       synth.cancel();
       setTimeout(_doSpeak, 10);
     } catch(e) {}
   }, 280);
 }
+
+/* iOS Safari 专用稳定队列：不指定 voice，不 pause/resume，不设置 pitch/volume */
+let _iosSpeechChunks = [];
+let _iosSpeechIndex = 0;
+let _iosSpeechTimer = null;
+let _iosSpeechSeq = 0;
+function _iosClearButtons(){ document.querySelectorAll('.speak-btn.playing,.flashcard-speak.playing,.recall-speak.playing,.dictation-play-btn.playing').forEach(b=>b.classList.remove('playing')); }
+function _iosSplit(text, isEnglish){
+  const max=120; const normalized=String(text||'').replace(/[\r\n]+/g,' ').replace(/\s+/g,' ').trim(); if(!normalized)return [];
+  const sentences=normalized.match(/[^.!?。！？；;]+[.!?。！？；;]?/g)||[normalized]; const out=[]; let cur='';
+  for(const raw of sentences){const part=raw.trim(); if(!part)continue; const join=isEnglish&&cur?' ':''; if((cur+join+part).length<=max){cur+=join+part;} else {if(cur)out.push(cur); if(part.length<=max)cur=part; else {for(let i=0;i<part.length;i+=max)out.push(part.slice(i,i+max));cur='';}}}
+  if(cur)out.push(cur); return out;
+}
+function _iosStop(){ _iosSpeechSeq++; _iosSpeechChunks=[]; _iosSpeechIndex=0; if(_iosSpeechTimer){clearTimeout(_iosSpeechTimer);_iosSpeechTimer=null;} try{synth&&synth.cancel();}catch(e){} _iosClearButtons(); }
+function _iosNext(seq,isEnglish,btn){
+  if(!synth||seq!==_iosSpeechSeq||_iosSpeechIndex>=_iosSpeechChunks.length){if(seq===_iosSpeechSeq)_iosClearButtons();return;}
+  const u=new SpeechSynthesisUtterance(_iosSpeechChunks[_iosSpeechIndex++]); u.lang=isEnglish?'en-US':'zh-CN'; u.rate=0.95;
+  if(btn){_iosClearButtons();btn.classList.add('playing');}
+  u.onend=()=>{if(seq!==_iosSpeechSeq)return;_iosSpeechTimer=setTimeout(()=>{_iosSpeechTimer=null;_iosNext(seq,isEnglish,btn);},180);};
+  u.onerror=()=>{if(seq!==_iosSpeechSeq)return;_iosSpeechChunks=[];_iosClearButtons();};
+  try{synth.speak(u);}catch(e){_iosClearButtons();}
+}
+function speakIOS(text,isEnglish,btn){
+  if(!synth){showToast('当前浏览器不支持语音播放');return;} const clean=stripMarkdownForSpeech(text); if(!clean)return;
+  if(btn&&btn.classList.contains('playing')){_iosStop();return;} _iosStop(); const seq=_iosSpeechSeq; _iosSpeechChunks=_iosSplit(clean,isEnglish); _iosSpeechIndex=0; if(!_iosSpeechChunks.length)return;
+  _iosSpeechTimer=setTimeout(()=>{_iosSpeechTimer=null;if(seq===_iosSpeechSeq)_iosNext(seq,isEnglish,btn);},180);
+}
+function _looksEnglish(text) { const s=String(text||''); const letters=(s.match(/[A-Za-z]/g)||[]).length; const cjk=(s.match(/[\u3400-\u9fff]/g)||[]).length; return letters>=8 && letters>=cjk*2; }
 function speakCard(id, btn) {
   const card = cards.find(c => c.id === id);
   if (!card) return;
-  const isEnglish = card.category === 'english';
-  // title 与 content 分别清洁后再拼接（中文用「。」、英文用「. 」作为分句停顿）
   const t = stripMarkdownForSpeech(card.title);
   const c = stripMarkdownForSpeech(card.content);
+  const isEnglish = card.category === 'english' || _looksEnglish((t || '') + ' ' + (c || ''));
   const sep = isEnglish ? '. ' : '。';
   const joined = t && c ? (t + (t.endsWith(sep[sep.length-1]) ? ' ' : sep) + c) : (t || c);
-  speak(joined, isEnglish, btn);
+  if (_isIOS) speakIOS(joined, isEnglish, btn);
+  else speakDesktop(joined, isEnglish, btn);
 }
 function speakReviewCard(field, btn) {
   const card = reviewQueue[reviewIndex];
   if (!card) return;
-  const isEnglish = card.category === 'english';
-  speak(card[field] || '', isEnglish, btn);
+  const isEnglish = card.category === 'english' || _looksEnglish(card[field] || '');
+  if (_isIOS) speakIOS(card[field] || '', isEnglish, btn);
+  else speakDesktop(card[field] || '', isEnglish, btn);
 }
+
 function getAllCategories() {
   const result = {};
   Object.keys(defaultCategories).forEach(k => { if (!deletedDefaults.includes(k)) result[k] = defaultCategories[k]; });
@@ -1085,19 +1537,45 @@ function filterCards(cat) { currentFilter=cat; renderTabs(); renderCards(); }
 
 function setDisplayFilter(mode) {
   displayMasteredFilter = mode;
-  document.querySelectorAll('[data-mastered-filter]').forEach(el => el.classList.toggle('active', el.dataset.masteredFilter === mode));
+  const el = document.getElementById('masteredFilterSelect');
+  if (el) el.value = mode;
   renderCards();
 }
 function setImportantFilter(mode) {
   displayImportantFilter = mode;
-  document.querySelectorAll('[data-important-filter]').forEach(el => el.classList.toggle('active', el.dataset.importantFilter === mode));
+  const el = document.getElementById('importantFilterSelect');
+  if (el) el.value = mode;
+  renderCards();
+}
+function setReviewFilter(mode) {
+  displayReviewFilter = mode;
+  const el = document.getElementById('reviewFilterSelect');
+  if (el) el.value = mode;
   renderCards();
 }
 
 function setSortOrder(mode) {
   sortMode = mode;
-  document.querySelectorAll('[data-sort-order]').forEach(el => el.classList.toggle('active', el.dataset.sortOrder === mode));
+  const el = document.getElementById('sortOrderSelect');
+  if (el) el.value = mode;
   renderCards();
+}
+
+function getTodayBounds(now = Date.now()) {
+  const d = new Date(now);
+  d.setHours(0, 0, 0, 0);
+  const start = d.getTime();
+  const end = start + 86400000;
+  return { start, end };
+}
+
+function getCardReviewStatus(card, now, todayLog) {
+  if (todayLog.includes(card.id)) return 'reviewedToday';
+  if (!card.nextReviewAt || card.nextReviewAt === 0) return 'new';
+  const { start, end } = getTodayBounds(now);
+  if (card.nextReviewAt < start) return 'overdue';
+  if (card.nextReviewAt < end) return 'today';
+  return 'upcoming';
 }
 
 function renderCards() {
@@ -1105,44 +1583,50 @@ function renderCards() {
   const allCats = getAllCategories();
   document.getElementById('sectionTitle').textContent = currentFilter==='all' ? '全部卡片' : (allCats[currentFilter]?.name || '卡片');
   let filtered = currentFilter==='all' ? cards : cards.filter(c => c.category===currentFilter);
+  if (cardSearchQuery) {
+    const q = cardSearchQuery.toLowerCase();
+    filtered = filtered.filter(c =>
+      String(c.title || '').toLowerCase().includes(q) ||
+      String(c.content || '').toLowerCase().includes(q) ||
+      String(allCats[c.category]?.name || '').toLowerCase().includes(q)
+    );
+  }
   if (displayMasteredFilter === 'mastered') filtered = filtered.filter(c => c.mastered);
   else if (displayMasteredFilter === 'unmastered') filtered = filtered.filter(c => !c.mastered);
   if (displayImportantFilter === 'important') filtered = filtered.filter(c => c.important);
   else if (displayImportantFilter === 'normal') filtered = filtered.filter(c => !c.important);
-  filtered.sort((a,b) => sortMode==='desc' ? b.createdAt-a.createdAt : a.createdAt-b.createdAt);
-  if (filtered.length===0) { grid.innerHTML=''; empty.style.display='block'; return; }
-  empty.style.display='none';
   const todayLog = getTodayReviewLog();
   const now = Date.now();
+  filtered.forEach(c => ensureSRS(c));
+  if (displayReviewFilter === 'due') filtered = filtered.filter(c => {
+    const status = getCardReviewStatus(c, now, todayLog);
+    return status === 'overdue' || status === 'today';
+  });
+  else if (displayReviewFilter === 'overdue') filtered = filtered.filter(c => getCardReviewStatus(c, now, todayLog) === 'overdue');
+  else if (displayReviewFilter === 'today') filtered = filtered.filter(c => getCardReviewStatus(c, now, todayLog) === 'today');
+  else if (displayReviewFilter === 'upcoming') filtered = filtered.filter(c => getCardReviewStatus(c, now, todayLog) === 'upcoming');
+  else if (displayReviewFilter === 'reviewedToday') filtered = filtered.filter(c => getCardReviewStatus(c, now, todayLog) === 'reviewedToday');
+  else if (displayReviewFilter === 'new') filtered = filtered.filter(c => getCardReviewStatus(c, now, todayLog) === 'new');
+  filtered.sort((a,b) => sortMode==='desc' ? b.createdAt-a.createdAt : a.createdAt-b.createdAt);
+  if (filtered.length===0) {
+    grid.innerHTML='';
+    empty.style.display='block';
+    const isSearch = !!cardSearchQuery;
+    empty.querySelector('.empty-state-icon').textContent = isSearch ? '⌕' : '📭';
+    empty.querySelector('.empty-state-text').textContent = isSearch ? `没有找到“${escapeHtml(cardSearchQuery)}”相关卡片` : '还没有卡片，点击「添加卡片」开始吧';
+    const countEl = document.getElementById('filterResultCount');
+    if (countEl) countEl.textContent = `0 / ${cards.length} 张`;
+    return;
+  }
+  empty.style.display='none';
   grid.innerHTML = filtered.map(card => {
     ensureSRS(card);
     const info = getCategoryInfo(card.category);
     const isMastered = !!card.mastered;
     const isImportant = !!card.important;
-    // SRS 状态徽章
-    let srsBadge = '';
-    if (card.nextReviewAt && card.nextReviewAt > 0) {
-      const daysUntil = Math.ceil((card.nextReviewAt - now) / 86400000);
-      if (daysUntil < 0) {
-        srsBadge = `<div class="srs-badge overdue">⏰ 已过期 ${-daysUntil} 天</div>`;
-      } else if (daysUntil === 0) {
-        srsBadge = `<div class="srs-badge today">📌 今日复习</div>`;
-      } else if (daysUntil <= 3) {
-        srsBadge = `<div class="srs-badge soon">⏳ ${daysUntil} 天后</div>`;
-      } else {
-        srsBadge = `<div class="srs-badge later">✔ ${SRS.intervalLabel(card.interval)}后</div>`;
-      }
-    } else {
-      srsBadge = `<div class="srs-badge new">🆕 待复习</div>`;
-    }
     const levelLabel = SRS.srsLevelLabel(card.srsLevel);
     const historyCount = (reviewHistory[card.id] || []).length;
-    return `<div class="knowledge-card ${isMastered?'mastered':''}" style="border-left-color:${info.color}">
-      ${todayLog.includes(card.id) ? '<div class="review-badge">✓ 今日已复习</div>' : ''}
-      ${isMastered ? '<div class="mastered-badge">✅ 已学会</div>' : ''}
-      ${isImportant ? '<div class="important-badge">⭐ 重点</div>' : ''}
-      ${srsBadge}
-      <span class="card-category" style="background:${info.color}">${escapeHtml(info.name)}</span>
+    return `<div class="knowledge-card ${isMastered?'mastered':''}" style="border-left-color:${info.color}" onclick="openCardDetail(${card.id})" role="button" tabindex="0" onkeydown="if(event.key==='Enter' || event.key===' '){event.preventDefault();openCardDetail(${card.id})}">
       <div class="card-title">${escapeHtml(card.title)}</div>
       <div class="card-content md-content">${renderMarkdown(card.content)}</div>
       <div class="card-footer">
@@ -1150,19 +1634,34 @@ function renderCards() {
           ${formatDate(card.createdAt)}<br>
           <span style="font-size:11px;">${levelLabel}${historyCount>0?` · 复习${historyCount}次`:''}</span>
         </div>
-      <div class="card-actions"><button class="card-btn speak-btn" onclick="speakCard(${card.id}, this)" title="发音">🔊</button><button class="card-btn mastered-btn ${isMastered?'active':''}" onclick="toggleMastered(${card.id})" title="${isMastered?'取消已学会':'标记已学会'}">${isMastered?'✅':'⬜'}</button><button class="card-btn important-btn ${isImportant?'active':''}" onclick="toggleImportant(${card.id})" title="${isImportant?'取消重点':'标记重点'}">${isImportant?'⭐':'☆'}</button><button class="card-btn" onclick="editCard(${card.id})">✏️</button><button class="card-btn delete" onclick="deleteCard(${card.id})">🗑️</button></div></div>
+      <div class="card-actions" onclick="event.stopPropagation()">
+        <div class="card-menu">
+          <button class="card-menu-trigger" type="button" aria-expanded="false" onclick="toggleCardMenu(event, ${card.id})">更多 <span class="menu-chevron">⌃</span></button>
+          <div class="card-dropdown" id="cardMenu-${card.id}" role="menu">
+            <button type="button" onclick="speakCard(${card.id}, this); closeCardMenus()">🔊 <span>朗读</span></button>
+            <button type="button" class="${isMastered?'active':''}" onclick="toggleMastered(${card.id}); closeCardMenus()">${isMastered?'✅':'⬜'} <span>${isMastered?'取消已学会':'标记已学会'}</span></button>
+            <button type="button" class="${isImportant?'active':''}" onclick="toggleImportant(${card.id}); closeCardMenus()">${isImportant?'⭐':'☆'} <span>${isImportant?'取消重点':'标记重点'}</span></button>
+            <div class="menu-divider"></div>
+            <button type="button" onclick="editCard(${card.id}); closeCardMenus()">✏️ <span>编辑卡片</span></button>
+            <button type="button" class="danger" onclick="deleteCard(${card.id}); closeCardMenus()">🗑️ <span>删除卡片</span></button>
+          </div>
+        </div>
+      </div></div>
     </div>`;
   }).join('');
+  const countEl = document.getElementById('filterResultCount');
+  if (countEl) countEl.textContent = `${filtered.length} / ${cards.length} 张`;
 }
 
 function updateStats() {
   document.getElementById('totalCards').textContent = cards.length;
   document.getElementById('todayReview').textContent = getTodayReviewLog().length;
   const now = Date.now();
+  const { start, end } = getTodayBounds(now);
   const todayDue = cards.filter(c => {
     ensureSRS(c);
     if (!c.nextReviewAt || c.nextReviewAt === 0) return false;
-    return c.nextReviewAt <= now + 86400000; // 今天内及之前到期
+    return c.nextReviewAt >= start && c.nextReviewAt < end;
   }).length;
   const dueEl = document.getElementById('dueCards');
   if (dueEl) dueEl.textContent = todayDue;
@@ -1204,7 +1703,7 @@ async function saveCard() {
   if (customCat) {
     const key = customCat.toLowerCase().replace(/\s+/g,'_').replace(/[^\w\u4e00-\u9fa5]/g,'');
     if (!defaultCategories[key] && !customCategories[key]) {
-      const colors = ['#00cec9','#55efc4','#a29bfe','#ffeaa7','#74b9ff','#e84393','#d63031','#6ab04c','#be2edd','#f0932b'];
+      const colors = ['#008f7a','#4f8f8a','#6fa89e','#c89b4a','#7f9d98','#a46b7c','#c85d4b','#6f9a73','#8c7b6f','#d78b35'];
       customCategories[key] = { name:customCat, color:colors[Object.keys(customCategories).length%colors.length] };
       await api('POST','/categories',{key,name:customCat,color:customCategories[key].color});
     }
@@ -1292,6 +1791,54 @@ function preserveAndRerender() {
 }
 function closeModal() { document.getElementById('addModal').classList.remove('show'); editingId=null; }
 
+// ===== Card detail modal =====
+function openCardDetail(id) {
+  const card = cards.find(c => c.id === id);
+  if (!card) return;
+  ensureSRS(card);
+  const info = getCategoryInfo(card.category);
+  const historyCount = (reviewHistory[card.id] || []).length;
+  const detail = document.getElementById('cardDetailModal');
+  document.getElementById('cardDetailTitle').textContent = card.title || '无标题';
+  document.getElementById('cardDetailContent').innerHTML = renderMarkdown(card.content || '');
+  document.getElementById('cardDetailMeta').innerHTML = [
+    `<span>${escapeHtml(info.name)}</span>`,
+    `<span>${formatDate(card.createdAt)}</span>`,
+    `<span>${SRS.srsLevelLabel(card.srsLevel)}</span>`,
+    historyCount > 0 ? `<span>复习${historyCount}次</span>` : '',
+    card.mastered ? '<span>✓ 已学会</span>' : '',
+    card.important ? '<span>⭐ 重点</span>' : ''
+  ].filter(Boolean).join('');
+  const speakBtn = document.getElementById('cardDetailSpeakBtn');
+  const editBtn = document.getElementById('cardDetailEditBtn');
+  speakBtn.onclick = () => speakCard(card.id, speakBtn);
+  editBtn.onclick = () => { closeCardDetail(); editCard(card.id); };
+  detail.classList.add('show');
+  document.body.classList.add('modal-open');
+}
+function closeCardDetail() {
+  const detail = document.getElementById('cardDetailModal');
+  if (detail) detail.classList.remove('show');
+  document.body.classList.remove('modal-open');
+}
+
+// ===== Card action dropdown =====
+function closeCardMenus() {
+  document.querySelectorAll('.card-dropdown.show').forEach(menu => menu.classList.remove('show'));
+  document.querySelectorAll('.card-menu-trigger[aria-expanded="true"]').forEach(btn => btn.setAttribute('aria-expanded','false'));
+}
+function toggleCardMenu(event, id) {
+  event.stopPropagation();
+  const menu = document.getElementById('cardMenu-' + id);
+  const trigger = event.currentTarget;
+  const shouldOpen = !menu.classList.contains('show');
+  closeCardMenus();
+  if (shouldOpen) {
+    menu.classList.add('show');
+    trigger.setAttribute('aria-expanded','true');
+  }
+}
+
 // ===== Settings dropdown =====
 function toggleSettingsMenu(event) {
   event.stopPropagation();
@@ -1306,6 +1853,12 @@ document.addEventListener('click', function(event) {
   if (menu && !menu.contains(event.target)) {
     closeSettingsMenu();
   }
+  if (!event.target.closest('.card-menu')) {
+    closeCardMenus();
+  }
+});
+document.addEventListener('keydown', function(event) {
+  if (event.key === 'Escape') { closeCardMenus(); closeCardDetail(); }
 });
 
 // ===== 分类管理 =====
@@ -1358,7 +1911,7 @@ async function addCategoryFromModal() {
   if (!key) { showToast('分类名称无效'); return; }
   const allCats = getAllCategories();
   if (allCats[key]) { showToast('该分类已存在'); return; }
-  const colors = ['#00cec9','#55efc4','#a29bfe','#ffeaa7','#74b9ff','#e84393','#d63031','#6ab04c','#be2edd','#f0932b'];
+  const colors = ['#008f7a','#4f8f8a','#6fa89e','#c89b4a','#7f9d98','#a46b7c','#c85d4b','#6f9a73','#8c7b6f','#d78b35'];
   const color = colors[Object.keys(customCategories).length % colors.length];
   customCategories[key] = { name, color };
   try {
@@ -1863,7 +2416,7 @@ function doExportPDF() {
   let cardsHtml = '';
   if (exportLayout === 'card') {
     cardsHtml = exportCards.map((card, i) => {
-      const info = allCats[card.category] || {name:card.category, color:'#636e72'};
+      const info = allCats[card.category] || {name:card.category, color:'#7b8985'};
       return `<div class="pdf-card" style="border-left:5px solid ${info.color}">
         <div class="pdf-card-header"><span class="pdf-cat" style="background:${info.color}">${escapeHtml(info.name)}</span><span class="pdf-num">#${i+1}</span></div>
         <div class="pdf-card-title">${escapeHtml(card.title)}</div>
@@ -1872,7 +2425,7 @@ function doExportPDF() {
     }).join('');
   } else if (exportLayout === 'qa') {
     cardsHtml = exportCards.map((card, i) => {
-      const info = allCats[card.category] || {name:card.category, color:'#636e72'};
+      const info = allCats[card.category] || {name:card.category, color:'#7b8985'};
       return `<div class="pdf-qa">
         <div class="pdf-qa-header"><span class="pdf-cat" style="background:${info.color}">${escapeHtml(info.name)}</span><span class="pdf-num">第 ${i+1} 题</span></div>
         <div class="pdf-qa-q"><span class="pdf-label">Q:</span> ${escapeHtml(card.title)}</div>
@@ -1884,7 +2437,7 @@ function doExportPDF() {
     const grouped = {};
     exportCards.forEach(c => { if(!grouped[c.category]) grouped[c.category]=[]; grouped[c.category].push(c); });
     cardsHtml = Object.keys(grouped).map(catKey => {
-      const info = allCats[catKey] || {name:catKey, color:'#636e72'};
+      const info = allCats[catKey] || {name:catKey, color:'#7b8985'};
       const items = grouped[catKey].map((card, i) => 
         `<tr><td class="pdf-td-num">${i+1}</td><td class="pdf-td-title">${escapeHtml(card.title)}</td><td class="pdf-td-content">${renderMarkdown(card.content)}</td></tr>`
       ).join('');
@@ -1896,41 +2449,41 @@ function doExportPDF() {
   const html = `<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><title>知识卡片导出 - ${dateStr}</title>
   <style>
     * { margin:0; padding:0; box-sizing:border-box; }
-    body { font-family:'PingFang SC','Microsoft YaHei','Helvetica Neue',sans-serif; color:#2d3436; padding:30px; }
-    .pdf-header { text-align:center; margin-bottom:30px; padding-bottom:20px; border-bottom:2px solid #6c5ce7; }
-    .pdf-header h1 { font-size:26px; color:#6c5ce7; margin-bottom:6px; }
-    .pdf-header .pdf-meta { font-size:13px; color:#636e72; }
+    body { font-family:'PingFang SC','Microsoft YaHei','Helvetica Neue',sans-serif; color:#252a2d; padding:30px; }
+    .pdf-header { text-align:center; margin-bottom:30px; padding-bottom:20px; border-bottom:2px solid #008f7a; }
+    .pdf-header h1 { font-size:26px; color:#008f7a; margin-bottom:6px; }
+    .pdf-header .pdf-meta { font-size:13px; color:#66716f; }
     .pdf-card { background:#f9f9fc; border-radius:10px; padding:18px 22px; margin-bottom:16px; page-break-inside:avoid; }
     .pdf-card-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
     .pdf-cat { color:#fff; font-size:11px; font-weight:600; padding:2px 10px; border-radius:12px; }
-    .pdf-num { font-size:12px; color:#b2bec3; }
+    .pdf-num { font-size:12px; color:#aebdb8; }
     .pdf-card-title { font-size:17px; font-weight:700; margin-bottom:8px; }
-    .pdf-card-content { font-size:14px; line-height:1.7; color:#636e72; word-break:break-word; }
-    .pdf-qa { margin-bottom:20px; page-break-inside:avoid; padding:16px 0; border-bottom:1px dashed #dfe6e9; }
+    .pdf-card-content { font-size:14px; line-height:1.7; color:#66716f; word-break:break-word; }
+    .pdf-qa { margin-bottom:20px; page-break-inside:avoid; padding:16px 0; border-bottom:1px dashed #d4e0dc; }
     .pdf-qa-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
     .pdf-qa-q { font-size:16px; font-weight:700; margin-bottom:8px; }
-    .pdf-qa-a { font-size:14px; line-height:1.7; color:#636e72; word-break:break-word; }
-    .pdf-label { color:#6c5ce7; font-weight:700; }
-    .pdf-group-title { font-size:18px; margin:24px 0 12px; color:#2d3436; }
+    .pdf-qa-a { font-size:14px; line-height:1.7; color:#66716f; word-break:break-word; }
+    .pdf-label { color:#008f7a; font-weight:700; }
+    .pdf-group-title { font-size:18px; margin:24px 0 12px; color:#252a2d; }
     .pdf-table { width:100%; border-collapse:collapse; margin-bottom:20px; font-size:13px; }
-    .pdf-table th { background:#6c5ce7; color:#fff; padding:8px 10px; text-align:left; font-weight:600; }
-    .pdf-table td { padding:8px 10px; border-bottom:1px solid #dfe6e9; vertical-align:top; }
-    .pdf-td-num { color:#b2bec3; text-align:center; }
+    .pdf-table th { background:#008f7a; color:#fff; padding:8px 10px; text-align:left; font-weight:600; }
+    .pdf-table td { padding:8px 10px; border-bottom:1px solid #d4e0dc; vertical-align:top; }
+    .pdf-td-num { color:#aebdb8; text-align:center; }
     .pdf-td-title { font-weight:600; }
-    .pdf-td-content { color:#636e72; word-break:break-word; }
+    .pdf-td-content { color:#66716f; word-break:break-word; }
     .pdf-card-content .md-h1, .pdf-qa-a .md-h1 { font-size:1.3em; font-weight:700; margin:6px 0 3px; }
     .pdf-card-content .md-h2, .pdf-qa-a .md-h2 { font-size:1.15em; font-weight:700; margin:6px 0 3px; }
     .pdf-card-content .md-h3, .pdf-qa-a .md-h3 { font-size:1em; font-weight:600; margin:4px 0 2px; }
     .pdf-card-content .md-code-block, .pdf-qa-a .md-code-block, .pdf-td-content .md-code-block { background:#f0f0f5; border-radius:6px; padding:10px; margin:6px 0; font-family:monospace; font-size:0.9em; overflow-x:auto; }
     .pdf-card-content .md-code-block code, .pdf-qa-a .md-code-block code, .pdf-td-content .md-code-block code { white-space:pre; }
     .pdf-card-content .md-code-inline, .pdf-qa-a .md-code-inline, .pdf-td-content .md-code-inline { background:#f0f0f5; padding:1px 5px; border-radius:3px; font-family:monospace; font-size:0.88em; }
-    .pdf-card-content .md-quote, .pdf-qa-a .md-quote, .pdf-td-content .md-quote { border-left:3px solid #6c5ce7; padding-left:10px; margin:6px 0; color:#636e72; font-style:italic; }
-    .pdf-card-content .md-hr, .pdf-qa-a .md-hr, .pdf-td-content .md-hr { border:none; border-top:1px solid #dfe6e9; margin:8px 0; }
+    .pdf-card-content .md-quote, .pdf-qa-a .md-quote, .pdf-td-content .md-quote { border-left:3px solid #008f7a; padding-left:10px; margin:6px 0; color:#66716f; font-style:italic; }
+    .pdf-card-content .md-hr, .pdf-qa-a .md-hr, .pdf-td-content .md-hr { border:none; border-top:1px solid #d4e0dc; margin:8px 0; }
     .pdf-card-content .md-ul, .pdf-qa-a .md-ul, .pdf-td-content .md-ul { margin:4px 0; padding-left:18px; }
     .pdf-card-content .md-ol, .pdf-qa-a .md-ol, .pdf-td-content .md-ol { margin:4px 0; padding-left:18px; }
     .pdf-card-content .md-li, .pdf-qa-a .md-li, .pdf-td-content .md-li { margin:2px 0; line-height:1.6; }
-    .pdf-card-content .md-link, .pdf-qa-a .md-link, .pdf-td-content .md-link { color:#6c5ce7; text-decoration:underline; }
-    .pdf-footer { text-align:center; margin-top:30px; padding-top:15px; border-top:1px solid #dfe6e9; font-size:12px; color:#b2bec3; }
+    .pdf-card-content .md-link, .pdf-qa-a .md-link, .pdf-td-content .md-link { color:#008f7a; text-decoration:underline; }
+    .pdf-footer { text-align:center; margin-top:30px; padding-top:15px; border-top:1px solid #d4e0dc; font-size:12px; color:#aebdb8; }
     @media print { body { padding:15px; } .pdf-card, .pdf-qa { page-break-inside:avoid; } }
   </style></head><body>
     <div class="pdf-header">
@@ -1989,7 +2542,7 @@ function renderRecallCard() {
   const isImportant = !!card.important;
   body.innerHTML = `<div class="recall-card">
     <span class="recall-category" style="background:${info.color}">${escapeHtml(info.name)}</span>
-    ${isImportant?'<span style="position:absolute;top:16px;right:140px;font-size:12px;background:#fd7e14;color:#fff;padding:2px 10px;border-radius:20px;font-weight:600;">⭐ 重点</span>':''}
+    ${isImportant?'<span style="position:absolute;top:16px;right:140px;font-size:12px;background:#d78b35;color:#fff;padding:2px 10px;border-radius:20px;font-weight:600;">⭐ 重点</span>':''}
     ${isMastered?'<span style="position:absolute;top:16px;right:70px;font-size:12px;background:var(--success);color:#fff;padding:2px 10px;border-radius:20px;font-weight:600;">✅ 已学会</span>':''}
     <button class="recall-speak" onclick="speakReviewCard('content',this)" title="发音">🔊</button>
     <div class="recall-label">📖 答案（卡片背面）</div>
@@ -2058,7 +2611,7 @@ function renderDictationCard() {
   const isEnglish = card.category === 'english';
   body.innerHTML = `<div class="recall-card">
     <span class="recall-category" style="background:${info.color}">${escapeHtml(info.name)}</span>
-    ${isImportant?'<span style="position:absolute;top:16px;right:140px;font-size:12px;background:#fd7e14;color:#fff;padding:2px 10px;border-radius:20px;font-weight:600;">⭐ 重点</span>':''}
+    ${isImportant?'<span style="position:absolute;top:16px;right:140px;font-size:12px;background:#d78b35;color:#fff;padding:2px 10px;border-radius:20px;font-weight:600;">⭐ 重点</span>':''}
     ${isMastered?'<span style="position:absolute;top:16px;right:70px;font-size:12px;background:var(--success);color:#fff;padding:2px 10px;border-radius:20px;font-weight:600;">✅ 已学会</span>':''}
     <div class="dictation-audio-area">
       <div class="dictation-icon">🎧</div>
@@ -2087,9 +2640,12 @@ function playDictation() {
   const card = reviewQueue[reviewIndex];
   if (!card) return;
   const btn = document.getElementById('dictationPlayBtn');
-  const isEnglish = card.category === 'english';
-  // 听写模式只读 title（知识点），不读 content（答案）
-  speak(card.title, isEnglish, btn);
+  // 听写模式只读 title（知识点），不读 content（答案）。
+  // 统一走 speakReviewCard，确保 iOS Safari 使用稳定的分段 TTS，
+  // Chrome/桌面端继续使用桌面版 TTS；不要调用已移除的旧 speak()。
+  const isEnglish = card.category === 'english' || _looksEnglish(card.title || '');
+  if (_isIOS) speakIOS(card.title || '', isEnglish, btn);
+  else speakDesktop(card.title || '', isEnglish, btn);
 }
 
 function submitDictation() {
@@ -2337,7 +2893,242 @@ document.getElementById('reviewSettingsModal').addEventListener('click', (e) => 
 document.getElementById('exportModal').addEventListener('click', (e) => { if(e.target===e.currentTarget) closeExportModal(); });
 document.getElementById('categoryModal').addEventListener('click', (e) => { if(e.target===e.currentTarget) closeCategoryModal(); });
 
+initCardSearch();
 init();
 </script>
 </body>
 </html>
+<style>
+/* ===== Reference-inspired editorial layout ===== */
+:root {
+  --page-max: 1240px;
+  --section-gap: 28px;
+  --warm: #fbfaf5;
+  --warm-2: #f5f3eb;
+  --ink: #20262a;
+  --muted: #6f7b78;
+}
+
+body {
+  background:
+    linear-gradient(180deg, #e2eeea 0%, #e7f0ed 46%, #f5f4ee 100%);
+}
+body.dark {
+  background: linear-gradient(180deg, #17221f 0%, #1b2925 50%, #17211e 100%);
+}
+
+/* More breathing room around the main content, like the reference landing page. */
+.stats-bar,
+.tabs,
+.main-content {
+  max-width: var(--page-max);
+}
+
+/* Large, calm statistics panel: one surface, strong numbers, minimal labels. */
+.stats-bar {
+  margin: 30px auto 0;
+  padding: 0;
+  gap: 0;
+  grid-template-columns: repeat(6, 1fr);
+  background: var(--warm);
+  border: 1px solid rgba(132, 154, 147, .28);
+  border-radius: 18px;
+  overflow: hidden;
+  box-shadow: 0 14px 36px rgba(35, 72, 65, .07);
+}
+
+.stat-card {
+  min-height: 148px;
+  padding: 30px 24px 26px;
+  border: 0;
+  border-right: 1px solid #e2e5df;
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.stat-card:last-child { border-right: 0; }
+.stat-card:hover {
+  background: rgba(0, 143, 122, .025);
+  border-color: #e2e5df;
+}
+.stat-number {
+  font-size: clamp(34px, 3vw, 48px);
+  line-height: .95;
+  font-weight: 750;
+  letter-spacing: -.045em;
+  color: var(--ink);
+}
+.stat-label {
+  margin-top: 13px;
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--primary);
+  letter-spacing: .02em;
+  font-weight: 600;
+}
+body.dark .stats-bar { background: #202d2a; border-color: #34443f; }
+body.dark .stat-card { border-right-color: #34443f; }
+body.dark .stat-card:hover { background: rgba(87,185,167,.035); }
+body.dark .stat-number { color: #eef5f2; }
+
+/* Keep navigation visually light and secondary. */
+.tabs {
+  padding: 20px 8px 10px;
+  gap: 8px;
+}
+.tab {
+  padding: 8px 14px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.tab.active {
+  background: var(--primary);
+  color: #fff;
+}
+
+.main-content { padding-top: 10px; }
+.action-bar { margin-bottom: 18px; }
+.section-title {
+  font-size: 23px;
+  font-weight: 750;
+  letter-spacing: -.03em;
+}
+
+/* Filter/search surface is deliberately quieter than the cards. */
+.display-filter-bar {
+  padding: 10px 12px;
+  margin-bottom: 24px;
+  border-radius: 12px;
+  background: rgba(251,250,245,.76);
+  backdrop-filter: blur(10px);
+}
+
+/* Editorial card grid: fewer, larger cards and generous whitespace. */
+.card-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+.knowledge-card {
+  height: 268px;
+  min-height: 268px;
+  padding: 22px 20px 18px;
+  border: 1px solid #d9e2de;
+  border-left: 1px solid #d9e2de !important;
+  border-radius: 16px;
+  background: var(--warm);
+  box-shadow: 0 8px 24px rgba(35,72,65,.055);
+  transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease;
+}
+.knowledge-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 20px;
+  right: 20px;
+  height: 3px;
+  border-radius: 0 0 3px 3px;
+  background: var(--primary);
+  opacity: .72;
+}
+.knowledge-card.cat-english::before { background:#c85d4b; }
+.knowledge-card.cat-programming::before { background:#3f8f86; }
+.knowledge-card.cat-math::before { background:#008f7a; }
+.knowledge-card.cat-science::before { background:#7b9f96; }
+.knowledge-card.cat-history::before { background:#c89b4a; }
+.knowledge-card.cat-language::before { background:#4f8f8a; }
+.knowledge-card.cat-other::before { background:#899692; }
+.knowledge-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 16px 34px rgba(35,72,65,.10);
+  border-color: #c8d8d3;
+}
+.knowledge-card.mastered { background: var(--warm); opacity: .72; }
+.knowledge-card.mastered:hover { opacity: .9; }
+
+.knowledge-card .card-title {
+  min-height: 48px;
+  max-height: 48px;
+  margin-top: 4px;
+  margin-bottom: 10px;
+  font-size: 18px;
+  line-height: 1.3;
+  letter-spacing: -.025em;
+  color: var(--ink);
+}
+.knowledge-card .card-content {
+  height: 108px;
+  min-height: 108px;
+  max-height: 108px;
+  flex: 0 0 108px;
+  font-size: 13px;
+  line-height: 1.75;
+  color: #65726f;
+  -webkit-line-clamp: 5;
+}
+.knowledge-card .card-footer {
+  min-height: 52px;
+  margin-top: auto;
+  padding-top: 13px;
+  border-top: 1px solid #e1e5df;
+}
+.card-date { font-size: 12px; line-height: 1.5; }
+.card-menu-trigger {
+  min-width: 70px;
+  height: 32px;
+  border-radius: 9px;
+  background: transparent;
+}
+.card-menu-trigger:hover,
+.card-menu-trigger[aria-expanded="true"] {
+  background: var(--primary);
+}
+body.dark .knowledge-card { background:#202d2a; border-color:#34443f; }
+body.dark .knowledge-card::before { opacity:.85; }
+body.dark .knowledge-card .card-title { color:#eef5f2; }
+body.dark .knowledge-card .card-content { color:#aebdb8; }
+body.dark .knowledge-card .card-footer { border-top-color:#34443f; }
+
+/* Detail view follows the same warm, spacious language. */
+.card-detail-modal {
+  background: var(--warm);
+  border: 1px solid #d9e2de;
+  border-radius: 20px;
+  box-shadow: 0 28px 80px rgba(35,72,65,.18);
+}
+body.dark .card-detail-modal { background:#202d2a; border-color:#34443f; }
+
+@media (max-width: 900px) {
+  .stats-bar { grid-template-columns: repeat(3, 1fr); }
+  .stat-card:nth-child(3) { border-right: 0; }
+  .stat-card:nth-child(-n+3) { border-bottom: 1px solid #e2e5df; }
+  .card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  body.dark .stat-card:nth-child(-n+3) { border-bottom-color:#34443f; }
+}
+
+@media (max-width: 680px) {
+  .stats-bar {
+    margin: 18px 14px 0;
+    grid-template-columns: repeat(2, 1fr);
+    border-radius: 15px;
+  }
+  .stat-card {
+    min-height: 112px;
+    padding: 22px 12px;
+    border-right: 1px solid #e2e5df;
+    border-bottom: 1px solid #e2e5df;
+  }
+  .stat-card:nth-child(2n) { border-right: 0; }
+  .stat-card:nth-last-child(-n+2) { border-bottom: 0; }
+  .stat-number { font-size: 32px; }
+  .stat-label { margin-top: 9px; font-size: 11px; }
+  body.dark .stat-card { border-right-color:#34443f; border-bottom-color:#34443f; }
+  .tabs { padding: 14px 14px 8px; }
+  .card-grid { grid-template-columns: 1fr; gap: 14px; }
+  .knowledge-card { height: 288px; min-height: 288px; }
+}
+</style>
