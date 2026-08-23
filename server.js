@@ -47,6 +47,7 @@ function ensureSRFields(card) {
   if (card.nextReviewAt == null) card.nextReviewAt = 0;
   if (card.lastReviewedAt == null) card.lastReviewedAt = 0;
   if (card.repetitions == null) card.repetitions = 0;
+  if (card.lapses == null) card.lapses = 0; // 答错累计次数：答错恢复期节奏更慢
   if (card.srsLevel == null) card.srsLevel = 'new'; // new, learning, reviewing, mastered
   return card;
 }
@@ -262,6 +263,7 @@ const server = http.createServer((req, res) => {
             if (parsed.srs.interval != null) card.interval = parsed.srs.interval;
             if (parsed.srs.nextReviewAt != null) card.nextReviewAt = parsed.srs.nextReviewAt;
             if (parsed.srs.repetitions != null) card.repetitions = parsed.srs.repetitions;
+            if (parsed.srs.lapses != null) card.lapses = parsed.srs.lapses;
             if (parsed.srs.srsLevel) card.srsLevel = parsed.srs.srsLevel;
             card.lastReviewedAt = Date.now();
             // 记录复习历史
