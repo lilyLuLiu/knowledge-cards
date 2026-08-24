@@ -1426,55 +1426,131 @@ function pickVoice(isEnglish) {
   zhAny.sort((a,b) => _voiceQualityScore(b) - _voiceQualityScore(a));
   return zhAny[0] || null;
 }
+function _chromeSplitSpeech(text, isEnglish) {
+  // Chrome/macOS 对过长的单个 SpeechSynthesisUtterance 容易出现
+  // 音色发哑、失真、吞音。按句子切成短片段，逐段排队播放。
+  const max = 140;
+  const normalized = String(text || '')
+    .replace(/[\r\n]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (!normalized) return [];
+
+  const sentences = normalized.match(/[^.!?。！？；;]+[.!?。！？；;]?/g) || [normalized];
+  const out = [];
+  let cur = '';
+
+  for (const raw of sentences) {
+    const part = raw.trim();
+    if (!part) continue;
+    const join = isEnglish && cur ? ' ' : '';
+    const candidate = cur + join + part;
+
+    if (candidate.length <= max) {
+      cur = candidate;
+      continue;
+    }
+
+    if (cur) out.push(cur);
+    if (part.length <= max) {
+      cur = part;
+    } else {
+      // 极长单句继续按空格切分，避免在单个 utterance 中持续太久。
+      const words = isEnglish ? part.split(/\s+/) : null;
+      if (words) {
+        let piece = '';
+        for (const word of words) {
+          const next = piece ? piece + ' ' + word : word;
+          if (next.length <= max) {
+            piece = next;
+          } else {
+            if (piece) out.push(piece);
+            piece = word;
+          }
+        }
+        cur = piece;
+      } else {
+        for (let i = 0; i < part.length; i += max) out.push(part.slice(i, i + max));
+        cur = '';
+      }
+    }
+  }
+  if (cur) out.push(cur);
+  return out;
+}
+
+let _desktopSpeechChunks = [];
+let _desktopSpeechIndex = 0;
+let _desktopSpeechTimer = null;
+let _desktopSpeechSeq = 0;
+
+function _desktopClearButtons() {
+  document.querySelectorAll('.speak-btn.playing,.flashcard-speak.playing,.recall-speak.playing,.dictation-play-btn.playing')
+    .forEach(b => b.classList.remove('playing'));
+}
+
+function _desktopStop() {
+  _desktopSpeechSeq++;
+  _desktopSpeechChunks = [];
+  _desktopSpeechIndex = 0;
+  if (_desktopSpeechTimer) {
+    clearTimeout(_desktopSpeechTimer);
+    _desktopSpeechTimer = null;
+  }
+  try { synth && synth.cancel(); } catch(e) {}
+  _desktopClearButtons();
+}
+
+function _selectChromeVoice(isEnglish) {
+  if (!synth) return null;
+  const voices = synth.getVoices() || [];
+  if (!voices.length) return null;
+  let candidates = isEnglish ? voices.filter(v => /^en[-_]/i.test(v.lang || '')) : voices.filter(v => /^(zh[-_](CN|SG)|cmn)/i.test(v.lang || ''));
+  if (!candidates.length) candidates = isEnglish ? voices.filter(v => /^en/i.test(v.lang || '')) : voices.filter(v => /^zh[-_]/i.test(v.lang || ''));
+  if (!candidates.length) return null;
+  const bad = /compact|novelty|robot|floater|mechanical|演示|机械|紧凑|压缩|old|老旧/i;
+  const goodEn = /samantha|alex|ava|allison|serena|karen|daniel|aaron|nicky|susan|google us english|google uk english|natural|enhanced|premium/i;
+  const goodZh = /ting-ting|ting ting|mei-jia|mei jia|sin-ji|sin ji|mandarin|putonghua|普通话|中文|natural|enhanced|premium|google/i;
+  const score = v => {
+    const name = `${v.name || ''} ${v.voiceURI || ''}`;
+    let n = 0;
+    if (bad.test(name)) n -= 10000;
+    if (v.localService) n += 500;
+    if (v.default) n += 20;
+    if (isEnglish && goodEn.test(name)) n += 1000;
+    if (!isEnglish && goodZh.test(name)) n += 1000;
+    if (isEnglish && /^en[-_]US/i.test(v.lang || '')) n += 100;
+    if (!isEnglish && /^(zh[-_]CN|cmn)/i.test(v.lang || '')) n += 100;
+    return n;
+  };
+  candidates.sort((a,b) => score(b) - score(a));
+  return candidates[0] || null;
+}
+function _desktopNext(seq, isEnglish, btn) {
+  if (!synth || seq !== _desktopSpeechSeq || _desktopSpeechIndex >= _desktopSpeechChunks.length) { if (seq === _desktopSpeechSeq) _desktopClearButtons(); return; }
+  const u = new SpeechSynthesisUtterance(_desktopSpeechChunks[_desktopSpeechIndex++]);
+  u.lang = isEnglish ? 'en-US' : 'zh-CN';
+  u.rate = 0.95;
+  const voice = _selectChromeVoice(isEnglish);
+  if (voice) { u.voice = voice; u.lang = voice.lang || u.lang; }
+  if (btn) { _desktopClearButtons(); btn.classList.add('playing'); }
+  u.onend = () => { if (seq !== _desktopSpeechSeq) return; _desktopSpeechTimer = setTimeout(() => { _desktopSpeechTimer = null; _desktopNext(seq, isEnglish, btn); }, 100); };
+  u.onerror = () => { if (seq !== _desktopSpeechSeq) return; _desktopSpeechChunks = []; _desktopClearButtons(); };
+  try { synth.speak(u); } catch(e) { _desktopClearButtons(); }
+}
+
 function speakDesktop(text, isEnglish, btn) {
-  // ★ 与 iOS Safari 完全同源的兜底策略：不指定 u.voice（交给浏览器系统默认高音质音色），
-  //   只设置 u.lang + u.rate=0.95，完全不设置 pitch/volume。
-  //   —— 经验：一旦显式指定 u.voice（哪怕选了"本地/最佳"），macOS 上 Chrome/Safari 都
-  //      可能切到 Compact/演示/网络合成等低音质引擎，出现嘶哑/机器人声。
-  //   而只设 u.lang 时，浏览器会使用用户系统里已配置的"默认语音"，通常是高音质自然音色。
   if (!synth) { showToast('当前浏览器不支持语音播放'); return; }
-  _warmVoices();
   const cleanText = stripMarkdownForSpeech(text);
   if (!cleanText) return;
-  const seq = ++_speakSeq;
-  const clearBtn = () => {
-    if (seq !== _speakSeq) return;
-    document.querySelectorAll('.speak-btn.playing,.flashcard-speak.playing,.recall-speak.playing,.dictation-play-btn.playing')
-      .forEach(b => b.classList.remove('playing'));
-  };
-  const addBtn = () => {
-    document.querySelectorAll('.speak-btn.playing,.flashcard-speak.playing,.recall-speak.playing,.dictation-play-btn.playing')
-      .forEach(b => b.classList.remove('playing'));
-    if (btn) btn.classList.add('playing');
-  };
-
-  try { synth.cancel(); } catch(e) {}
-
-  const _doSpeak = () => {
-    if (seq !== _speakSeq) return;
-    const u = new SpeechSynthesisUtterance(cleanText);
-    // 关键：只设置 lang 和 rate，不设置 voice / pitch / volume
-    u.lang = isEnglish ? 'en-US' : 'zh-CN';
-    u.rate = 0.95;
-    u.onend = clearBtn;
-    u.onerror = clearBtn;
-    addBtn();
-    try { synth.speak(u); } catch(e) { clearBtn(); }
-  };
-
-  // 保留 cancel 后的短延迟，避免同一事件循环状态竞争
-  setTimeout(_doSpeak, 15);
-
-  // voices 初始化兜底：280ms 后还没开始播放，重试一次
-  setTimeout(() => {
-    if (seq !== _speakSeq || !synth) return;
-    try {
-      if (synth.speaking || synth.paused) return;
-      _warmVoices();
-      synth.cancel();
-      setTimeout(_doSpeak, 10);
-    } catch(e) {}
-  }, 280);
+  if (btn && btn.classList.contains('playing')) { _desktopStop(); return; }
+  _desktopStop();
+  const seq = _desktopSpeechSeq;
+  _desktopSpeechChunks = _chromeSplitSpeech(cleanText, isEnglish);
+  _desktopSpeechIndex = 0;
+  if (!_desktopSpeechChunks.length) return;
+  const voices = synth.getVoices();
+  _desktopSpeechTimer = setTimeout(() => { _desktopSpeechTimer = null; if (seq === _desktopSpeechSeq) _desktopNext(seq, isEnglish, btn); }, voices && voices.length ? 50 : 350);
 }
 
 /* iOS Safari 专用稳定队列：不指定 voice，不 pause/resume，不设置 pitch/volume */
