@@ -696,6 +696,39 @@ body.dark .tab.active { background:#f3f7f5;color:#252a2d; }
 }
 
 </style>
+
+<style>
+/* ===== 页面两侧留白：直接作用于内容容器，避免卡片贴屏 ===== */
+.main-content {
+  width: calc(100% - 32px) !important;
+  max-width: 1600px !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+}
+
+.card-grid {
+  width: 100% !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+}
+
+.review-body {
+  padding-left: 36px !important;
+  padding-right: 36px !important;
+}
+
+@media (max-width: 680px) {
+  .main-content {
+    width: calc(100% - 28px) !important;
+  }
+  .review-body {
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+  }
+}
+</style>
 </head>
 <body>
 
