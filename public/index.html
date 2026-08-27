@@ -993,6 +993,14 @@ body.dark .tab.active { background:#f3f7f5;color:#252a2d; }
       </div>
     </div>
     <div class="form-group">
+      <label class="form-label">🆕 每日新卡上限</label>
+      <div style="display:flex;align-items:center;gap:8px;margin-top:8px;">
+        <input type="number" class="review-count-input" id="dailyNewLimit" value="20" min="1" max="999" onchange="setDailyNewLimit(this.value)">
+        <span style="font-size:13px;color:var(--text-light);">张 / 每天</span>
+      </div>
+      <div style="font-size:12px;color:var(--text-light);margin-top:6px;">避免新卡一次增加过多复习负担；翻卡、默写、听写当天可以重复训练同一批卡。</div>
+    </div>
+    <div class="form-group">
       <label class="form-label">复习顺序</label>
       <div class="order-options" id="orderOptions">
         <div class="order-option active" data-order="random" onclick="selectOrder('random')">🎲 随机</div>
@@ -1024,7 +1032,7 @@ body.dark .tab.active { background:#f3f7f5;color:#252a2d; }
 
 <script>
 const defaultCategories = { english:{name:'英语',color:'#c85d4b'}, programming:{name:'编程',color:'#3f8f86'}, math:{name:'数学',color:'#008f7a'}, science:{name:'科学',color:'#a46b7c'}, history:{name:'历史',color:'#c89b4a'}, language:{name:'语言',color:'#4f8f8a'}, other:{name:'其他',color:'#7b8985'} };
-let cards=[], customCategories={}, reviewLogs={}, streak={count:0,lastDate:null}, deletedDefaults=[];
+let cards=[], customCategories={}, reviewLogs={}, reviewModeLogs={}, streak={count:0,lastDate:null}, deletedDefaults=[];
 let currentFilter='all', editingId=null, reviewQueue=[], reviewIndex=0;
 let displayMasteredFilter='all', displayImportantFilter='all', displayReviewFilter='all', sortMode='desc';
 let cardSearchQuery='';
@@ -1040,225 +1048,93 @@ let reviewHistory = {};      // 每卡片复习历史 { [cardId]: [ {at,correct,
 
 // ===== SRS 核心算法（8 步） =====
 const SRS = {
-  // 第 1-8 步：输入本次答题数据，输出新的卡片 SRS 状态
+  // 自动根据客观答题行为调整记忆稳定度，不要求用户评价“困难/认识/简单”。
   processReview(card, { correct, responseMs, mode, errorCount = 0 }) {
     ensureSRS(card);
     const now = Date.now();
-
-    // ===== 第一步：数据采集 =====
-    // correct, responseMs 已传入
-    const actualDays = card.lastReviewedAt
-      ? Math.max(0, Math.round((now - card.lastReviewedAt) / 86400000))
-      : 0;
-    const plannedDays = card.interval || 0;
-
-    // ===== 第二步：阈值匹配 =====
     const { fastMs, normalMs, slowMs } = srsSettings;
+    const actualDays = card.lastReviewedAt ? Math.max(0, (now - card.lastReviewedAt) / 86400000) : 0;
+    const plannedDays = card.interval || 0;
+    const speedTag = responseMs <= fastMs ? 'fast' : responseMs <= normalMs ? 'normal' : responseMs <= slowMs ? 'slow' : 'verySlow';
 
-    // ===== 第三步：计算基础分 =====
-    // 正确性给分：答错的基础分必须显著低于"答对最慢"，让答错比"答得慢但对"严重得多
-    let baseScore;
-    if (correct) {
-      baseScore = 60;
-      // 正确情况：越快分越高，最慢也要给 5 分（保证较弱≥65 分）
-      if (responseMs <= fastMs) baseScore += 40;
-      else if (responseMs <= normalMs) {
-        const r = (responseMs - fastMs) / (normalMs - fastMs);
-        baseScore += Math.round(40 - r * 20); // 40 → 20
-      } else if (responseMs <= slowMs) {
-        const r = (responseMs - normalMs) / (slowMs - normalMs);
-        baseScore += Math.round(20 - r * 15); // 20 → 5
-      } else {
-        baseScore += 5;
-      }
-    } else {
-      // 错误情况：先给一个很低的基础分 10，然后按"越慢答错越惨"扣分
-      // 语义：想了半天还是答错 → 比胡写答错更说明没记住 → 惩罚更重
-      baseScore = 10;
-      let timePenalty;
-      if (responseMs <= fastMs) {
-        timePenalty = 5; // 快速乱写：扣5 → 5分
-      } else if (responseMs <= normalMs) {
-        const r = (responseMs - fastMs) / (normalMs - fastMs);
-        timePenalty = 5 + Math.round(r * 3); // 5 → 8
-      } else if (responseMs <= slowMs) {
-        const r = (responseMs - normalMs) / (slowMs - normalMs);
-        timePenalty = 8 + Math.round(r * 2); // 8 → 10
-      } else {
-        timePenalty = 10; // 超时答错：扣光 → 0分
-      }
-      baseScore = Math.max(0, baseScore - timePenalty); // 答错得分范围：0 ~ 5
-    }
-
-    // ===== 第四步：时间衰减修正 =====
-    // 比较实际间隔与计划间隔
-    let finalScore = baseScore;
-    let decayFactor = 1;
-    if (plannedDays > 0 && correct) {
-      if (actualDays <= plannedDays) {
-        // 提前复习：轻微加分（因为记忆还很牢固，提前复习说明用户重视）
-        const ratio = actualDays / plannedDays;
-        decayFactor = 0.98 + 0.02 * ratio; // 0.98 ~ 1.00
-      } else {
-        // 迟到复习：扣分，迟到越多扣越多
-        const overshoot = actualDays - plannedDays;
-        decayFactor = Math.max(0.6, 1 - overshoot * 0.03); // 每天迟到扣 3%，最多到 0.6
-      }
-      finalScore = Math.max(0, Math.min(100, Math.round(baseScore * decayFactor)));
-    }
-
-    // 同一次复习中允许重新回答：只有本次复习最终提交时才调用本算法。
-    // errorCount 记录此前答错次数，不把每次重试当成一次独立复习。
-    // 最终答对但中途答错，记忆质量仍低于“一次答对”，并缩短下一次间隔。
-    if (correct && errorCount > 0) {
-      const retryPenalty = Math.min(35, errorCount * 12);
-      finalScore = Math.max(20, finalScore - retryPenalty);
-    }
-
-    // ===== 第五步：确定记忆质量等级 =====
-    const speedTag = responseMs <= fastMs ? 'fast' : responseMs <= normalMs ? 'normal' : 'slow';
     let quality;
-    if (correct && errorCount > 0) {
-      quality = finalScore >= 60 ? 'recovered' : 'weak';
-    } else if (correct && finalScore >= 85 && speedTag === 'fast') {
-      quality = 'excellent'; // 优秀
-    } else if (correct && finalScore >= 70 && speedTag !== 'slow') {
-      quality = 'good'; // 良好
-    } else if (correct && finalScore >= 50) {
-      quality = 'weak'; // 较弱
-    } else if (!correct && speedTag === 'fast') {
-      quality = 'complete_forget'; // 完全遗忘
-    } else {
-      quality = 'forgot'; // 遗忘
-    }
+    if (!correct) quality = responseMs <= normalMs ? 'forgot' : 'complete_forget';
+    else if (errorCount > 0) quality = 'recovered';
+    else if (speedTag === 'fast') quality = 'excellent';
+    else if (speedTag === 'normal') quality = 'good';
+    else quality = 'weak';
 
-    // ===== 第六步：更新难度系数（1.3-3.0） =====
-    // 答错的惩罚必须显著重于"答对较弱"，让用户感觉答错会让卡片明显变得更难出现
+    // Stability = 当前记忆大致可以保持的天数；所有调整均由答题行为自动完成。
+    let stability = card.stability > 0 ? card.stability : 0;
     let difficulty = card.difficulty || 2.5;
-    switch (quality) {
-      case 'excellent': difficulty -= 0.15; break;
-      case 'good':      difficulty -= 0.08; break;
-      case 'weak':      difficulty += 0.02; break;
-      case 'recovered': difficulty += 0.10; break;
-      case 'forgot':    difficulty += 0.20; break;   // 答错但不是秒答：比答对弱重 10 倍
-      case 'complete_forget': difficulty += 0.30; break; // 秒答错：惩罚最重
-    }
-    difficulty = Math.max(1.3, Math.min(3.0, +difficulty.toFixed(3)));
-
-    // ===== 第七步：计算新间隔 =====
-    const isForgotten = quality === 'forgot' || quality === 'complete_forget';
-    let newInterval;
     let repetitions = card.repetitions || 0;
     let lapses = card.lapses || 0;
-    // 答错后进入恢复期：连续答错不会增加间隔；答对后按 2 → 3 天逐步恢复，
-    // 连续稳定答对后才重新进入正常的指数增长阶段。
-    const inRecovery = !isForgotten && lapses > 0 && repetitions <= 2;
-    if (isForgotten) {
-      // ===== 遗忘 / 答错：进入重新学习阶段 =====
-      // 关键规则：答错不会因为“第 2 次、第 3 次”而把间隔拉长。
-      // 连续答错 1/2/3 次，都保持 1 天后再次出现；只有真正答对后，
-      // 才从恢复阶段重新建立 2 → 3 → 7 → 14… 天的间隔。
-      // 这样可以避免“连续答错三次，反而变成 3 天后才复习”的错误。
-      newInterval = 1;
-      repetitions = 0;
+    let newInterval;
+
+    if (!correct) {
+      stability = Math.max(0.5, stability > 0 ? stability * 0.30 : 0.5);
+      difficulty = Math.min(3.0, +(difficulty + 0.18).toFixed(3));
       lapses += 1;
+      repetitions = 0;
+      newInterval = 1;
+    } else if (errorCount > 0) {
+      // ❌→✅：最终想起，但记忆不牢，进入短恢复期。
+      const base = stability > 0 ? stability : 1;
+      stability = Math.max(1, base * (errorCount >= 3 ? 0.75 : 1.05));
+      difficulty = Math.min(3.0, +(difficulty + 0.06 * Math.min(errorCount, 3)).toFixed(3));
+      newInterval = errorCount >= 3 ? 1 : errorCount === 2 ? 2 : 3;
+      repetitions += 1;
     } else {
-      // 当前间隔 × 基础乘数 × 分数微调 × 难度系数比
-      // 基础乘数（节奏参考：1→3→7→10→21 天，逐步拉长）
-      let baseMultiplier =
-        quality === 'excellent' ? 2.3 :
-        quality === 'good'      ? 1.9 :
-        quality === 'recovered' ? 1.4 :
-        /* weak */                1.25;
-      const scoreAdjust = 0.85 + (finalScore / 100) * 0.4; // 0.85 ~ 1.25
-      const difficultyRatio = Math.pow(2.5 / difficulty, 0.7); // 难度影响（平缓些）
-      const currentInterval = card.interval > 0 ? card.interval : 1;
-      let raw;
-      if (errorCount > 0) {
-        // 同一次复习中曾答错，但最终答对：只提交一次 SRS。
-        // 根据错误次数和是否处于遗忘恢复期，采用短间隔恢复。
-        if (card.lapses > 0 || inRecovery) {
-          raw = errorCount >= 3 ? 1 : (errorCount === 2 ? 2 : 3);
-        } else {
-          raw = errorCount >= 3 ? 1 : (errorCount === 2 ? 2 : 3);
-        }
-      } else if (repetitions === 0) {
-        // 新卡第一次答对：1 天后复习
-        raw = 1;
-      } else if (inRecovery && repetitions === 1) {
-        // 曾经遗忘后的第一次答对：2 天后再次确认
-        raw = quality === 'weak' ? 1 : 2;
-      } else if (inRecovery && repetitions === 2) {
-        // 恢复阶段第二次答对：3 天后再次确认
-        raw = quality === 'weak' ? 2 : 3;
-      } else if (repetitions === 1) {
-        // 正常学习：1 → 3/4 天
-        raw = quality === 'excellent' ? 4 : (quality === 'good' ? 3 : 2);
+      const latenessFactor = plannedDays > 0 && actualDays > plannedDays
+        ? Math.max(0.80, 1 - Math.min(10, actualDays - plannedDays) * 0.02) : 1;
+      const difficultyFactor = Math.max(0.80, Math.min(1.15, Math.pow(2.5 / difficulty, 0.45)));
+      if (repetitions === 0) {
+        stability = Math.max(1, stability || 1);
+        newInterval = 1;
       } else {
-        raw = currentInterval * baseMultiplier * scoreAdjust * difficultyRatio;
+        const growth = (speedTag === 'fast' ? 2.45 : speedTag === 'normal' ? 2.05 : speedTag === 'slow' ? 1.55 : 1.30)
+          * difficultyFactor * latenessFactor;
+        stability = Math.max(1, (stability || Math.max(1, card.interval || 1)) * growth);
+        newInterval = Math.round(stability);
       }
-      newInterval = Math.max(1, Math.min(365, Math.round(raw)));
+      difficulty = Math.max(1.3, +(difficulty - (speedTag === 'fast' ? 0.08 : speedTag === 'normal' ? 0.04 : 0.01)).toFixed(3));
       repetitions += 1;
     }
 
-    // ===== 第八步：确定 SRS level 和 下次复习日期 =====
-    let srsLevel = card.srsLevel || 'new';
-    if (isForgotten) srsLevel = 'learning';
-    else if (repetitions >= 5 && newInterval >= 21) srsLevel = 'reviewing';
-    else if (repetitions >= 2) srsLevel = 'learning';
+    stability = Math.max(0.5, Math.min(365, +stability.toFixed(2)));
+    newInterval = Math.max(1, Math.min(365, newInterval));
 
-    // 按“自然日”计算下次复习日期，避免用当前时刻 + 24h 导致日期边界漂移。
-    // 例如今天 23:50 复习 1 天后，应当归入“明天”，而不是后天凌晨附近。
+    let srsLevel = card.srsLevel || 'new';
+    if (!correct) srsLevel = 'learning';
+    else if (repetitions >= 4 && newInterval >= 21) srsLevel = 'reviewing';
+    else if (repetitions >= 1) srsLevel = 'learning';
+
     const nextDate = new Date(now);
     nextDate.setHours(0, 0, 0, 0);
     nextDate.setDate(nextDate.getDate() + newInterval);
-    const nextReviewAt = nextDate.getTime();
 
     return {
       correct, responseMs, mode, errorCount,
-      actualDays, plannedDays, decayFactor: +decayFactor.toFixed(3),
-      baseScore, finalScore, speedTag, quality,
-      difficulty, interval: newInterval,
+      actualDays: +actualDays.toFixed(3), plannedDays,
+      quality, speedTag,
+      difficulty, stability, interval: newInterval,
       repetitions, lapses, srsLevel,
-      nextReviewAt, lastReviewedAt: now
+      nextReviewAt: nextDate.getTime(), lastReviewedAt: now
     };
   },
-
-  // 计算"复习紧急度"，用于排序（越大越需要先复习）
   urgency(card, now = Date.now()) {
     ensureSRS(card);
-    // 从未复习：优先度中等偏下（根据创建时间，越旧越靠前）
-    if (!card.lastReviewedAt || card.interval === 0) {
-      return 50 + Math.min(50, Math.floor((now - (card.createdAt || now)) / 86400000));
-    }
-    // 已过 nextReviewAt：越过期越紧急
+    if (!card.lastReviewedAt || card.interval === 0) return 50 + Math.min(50, Math.floor((now - (card.createdAt || now)) / 86400000));
     const overdue = now - (card.nextReviewAt || now);
-    if (overdue >= 0) {
-      const daysOverdue = Math.floor(overdue / 86400000);
-      return 100 + Math.min(100, daysOverdue * 10); // 100 ~ 200
-    }
-    // 未过期：越接近 nextReviewAt 越紧急
+    if (overdue >= 0) return 100 + Math.min(150, Math.floor(overdue / 86400000) * 10);
     const daysUntil = Math.ceil(-overdue / 86400000);
     return Math.max(0, 50 - daysUntil * 3);
   },
-
-  // 人性化显示记忆状态
   qualityLabel(q) {
-    return {
-      excellent: '优秀 🌟',
-      good: '良好 ✅',
-      weak: '较弱 ⚠️',
-      forgot: '遗忘 ❌',
-      complete_forget: '完全遗忘 💔'
-    }[q] || '—';
+    return { excellent:'答得很快', good:'正常答对', weak:'答对但较慢', recovered:'重新答对', forgot:'需要重新学习', complete_forget:'需要重点学习' }[q] || '—';
   },
   srsLevelLabel(l) {
-    return {
-      new: '🆕 新卡片',
-      learning: '📚 学习中',
-      reviewing: '🔄 复习中',
-      mastered: '✅ 已掌握'
-    }[l] || '🆕 新卡片';
+    return { new:'🆕 新卡片', learning:'📚 学习中', reviewing:'🔄 复习中', mastered:'✅ 已掌握' }[l] || '🆕 新卡片';
   },
   intervalLabel(days) {
     if (!days || days <= 0) return '待复习';
@@ -1276,7 +1152,8 @@ function ensureSRS(card) {
   if (card.nextReviewAt == null) card.nextReviewAt = 0;
   if (card.lastReviewedAt == null) card.lastReviewedAt = 0;
   if (card.repetitions == null) card.repetitions = 0;
-  if (card.lapses == null) card.lapses = 0; // 答错累计次数：答错恢复期节奏更慢
+  if (card.lapses == null) card.lapses = 0; // 答错累计次数
+  if (card.stability == null) card.stability = 0; // 动态记忆稳定度（天）
   if (card.srsLevel == null) card.srsLevel = 'new';
 }
 
@@ -1329,6 +1206,7 @@ async function init() {
     cards = (state.cards || []).map(c => { ensureSRS(c); return c; });
     customCategories = state.customCategories || {};
     reviewLogs = state.reviewLogs || {};
+    reviewModeLogs = state.reviewModeLogs || {};
     streak = state.streak || {count:0,lastDate:null};
     deletedDefaults = state.deletedDefaults || [];
     reviewHistory = state.reviewHistory || {};
@@ -1818,6 +1696,23 @@ function updateStats() {
   document.getElementById('streakDays').textContent = streak.count || 0;
 }
 function getTodayReviewLog() { return reviewLogs[new Date().toDateString()] || []; }
+function getReviewModeKey(mode = reviewMode) { return mode || 'flip'; }
+function getTodayReviewModeLog(mode = reviewMode) {
+  const dateKey = new Date().toDateString();
+  const day = reviewModeLogs[dateKey] || {};
+  const value = day[getReviewModeKey(mode)];
+  return Array.isArray(value) ? value : [];
+}
+function getTodayReviewModeSet(mode = reviewMode) { return new Set(getTodayReviewModeLog(mode)); }
+function hasReviewedInAnotherModeToday(cardId, mode = reviewMode) {
+  const dateKey = new Date().toDateString();
+  const day = reviewModeLogs[dateKey] || {};
+  return Object.keys(day).some(m => m !== getReviewModeKey(mode) && Array.isArray(day[m]) && day[m].includes(cardId));
+}
+function hasSrsCommitToday(cardId) {
+  const today = new Date().toDateString();
+  return (reviewHistory[cardId] || []).some(h => h && h.at && new Date(h.at).toDateString() === today);
+}
 
 function openAddModal() {
   editingId=null;
@@ -2111,7 +2006,8 @@ let reviewOrder = 'random';
 let reviewMasteredFilter = 'all';
 let reviewImportantFilter = 'all';
 let reviewCountMode = '10';
-let reviewUseSRS = true;  // 是否启用记忆曲线（控制队列排序和"仅到期卡片"筛选）
+let reviewUseSRS = true;  // 是否启用记忆曲线
+let dailyNewLimit = 20;   // 每种复习模式每天最多进入的新卡数量
 
 function openReviewSettings() {
   if (cards.length === 0) { showToast('没有卡片可复习'); return; }
@@ -2141,7 +2037,10 @@ function openReviewSettings() {
   document.querySelector('#countOptions .order-option.active')?.classList.remove('active');
   document.querySelector('#countOptions .order-option[data-count="10"]').classList.add('active');
   document.getElementById('reviewCount').value = '';
+  const dailyNewInput = document.getElementById('dailyNewLimit');
+  if (dailyNewInput) dailyNewInput.value = dailyNewLimit;
   // SRS 开关初始化
+  try { dailyNewLimit = Math.max(1, Math.min(999, parseInt(localStorage.getItem('kc_daily_new_limit') || '20'))); } catch(e) {}
   reviewUseSRS = (typeof srsEnabled === 'boolean') ? srsEnabled : true;
   document.querySelectorAll('#srsOptions .order-option').forEach(el => el.classList.remove('active'));
   const srsInitVal = reviewUseSRS ? 'on' : 'off';
@@ -2245,6 +2144,15 @@ function selectCount(val) {
   document.getElementById('reviewCount').value = '';
   updateReviewSummary();
 }
+function setDailyNewLimit(value) {
+  const n = Math.max(1, Math.min(999, parseInt(value) || 20));
+  dailyNewLimit = n;
+  try { localStorage.setItem('kc_daily_new_limit', String(n)); } catch(e) {}
+  const input = document.getElementById('dailyNewLimit');
+  if (input) input.value = n;
+  updateReviewSummary();
+}
+
 function selectCountCustom() {
   const val = document.getElementById('reviewCount').value;
   if (val && parseInt(val) > 0) {
@@ -2264,7 +2172,7 @@ function updateReviewSummary() {
   const maxCount = isAll ? 0 : (parseInt(reviewCountMode) || 0);
   const willReview = maxCount > 0 ? Math.min(maxCount, pool.length) : pool.length;
   const orderText = reviewUseSRS
-    ? '🧠 记忆曲线优先'
+    ? '🆕 新卡片优先 → 🧠 记忆曲线'
     : (reviewOrder === 'random' ? '随机' : reviewOrder === 'sequential' ? '顺序（新→旧）' : '倒序（旧→新）');
   const masteredText = reviewMasteredFilter === 'all' ? '全部' : reviewMasteredFilter === 'mastered' ? '仅已学会' : '仅未学会';
   const importantText = reviewImportantFilter === 'all' ? '全部' : reviewImportantFilter === 'important' ? '仅重点' : '仅非重点';
@@ -2281,55 +2189,50 @@ function updateReviewSummary() {
   } else {
     summary.innerHTML = `模式：<b>${modeText}</b>，已选 <b>${reviewSelectedCats.size}</b> 个分类，学会：<b>${masteredText}</b>，重点：<b>${importantText}</b>，可用卡片 <b>${pool.length}</b> 张` +
       (reviewUseSRS && dueToday > 0 ? `（今日到期 <b style="color:var(--danger)">${dueToday}</b> 张）` : '') +
-      `，本次复习 <b>${willReview}</b> 张，顺序：<b>${orderText}</b>`;
+      `，本次复习 <b>${willReview}</b> 张，顺序：<b>${orderText}</b>` + `<div style="margin-top:5px;font-size:12px;color:var(--text-light);">不同模式当天允许重复训练；同一模式当天不重复，每日新卡上限 ${dailyNewLimit} 张。</div>`;
   }
 }
 
 function getReviewPool() {
-  const todayLog = getTodayReviewLog();
-  const masteredFilter = (c) => {
-    if (reviewMasteredFilter === 'mastered') return !!c.mastered;
-    if (reviewMasteredFilter === 'unmastered') return !c.mastered;
-    return true;
-  };
-  const importantFilter = (c) => {
-    if (reviewImportantFilter === 'important') return !!c.important;
-    if (reviewImportantFilter === 'normal') return !c.important;
-    return true;
-  };
-  // 开启 SRS 时：优先选择未复习且"已到期/即将到期"的卡片
-  let pool;
-  if (reviewUseSRS) {
-    const now = Date.now();
-    // 第一层：今日未复习 + 已到期或即将到期（7天内到期都算"近"）
-    let due = cards.filter(c => {
-      if (!reviewSelectedCats.has(c.category) || !masteredFilter(c) || !importantFilter(c)) return false;
-      if (todayLog.includes(c.id)) return false;
-      ensureSRS(c);
-      if (!c.nextReviewAt || c.nextReviewAt === 0) return true; // 从未复习过的也算"到期"
-      // 不再限制未来天数：开启 SRS 后纳入所有未来到期卡片。
-      // confirmReview() 会在随机模式下按到期自然日分组，
-      // 因此最终顺序为：逾期/今天 → 明天 → 后天 → 更远日期；每组内部随机。
-      return true;
+  const todayModeSet = getTodayReviewModeSet(reviewMode);
+  const todayDate = new Date().toDateString();
+  const todayModes = reviewModeLogs[todayDate] || {};
+  const otherModeIds = new Set();
+  Object.keys(todayModes).forEach(m => {
+    if (m !== getReviewModeKey(reviewMode) && Array.isArray(todayModes[m])) todayModes[m].forEach(id => otherModeIds.add(id));
+  });
+  const masteredFilter = c => reviewMasteredFilter === 'mastered' ? !!c.mastered : reviewMasteredFilter === 'unmastered' ? !c.mastered : true;
+  const importantFilter = c => reviewImportantFilter === 'important' ? !!c.important : reviewImportantFilter === 'normal' ? !c.important : true;
+  const eligible = c => reviewSelectedCats.has(c.category) && masteredFilter(c) && importantFilter(c) && !todayModeSet.has(c.id);
+
+  let pool = cards.filter(c => {
+    if (!eligible(c)) return false;
+    if (!reviewUseSRS) return true;
+    ensureSRS(c);
+    // 不同模式当天允许重复训练：已经在其它模式出现过的卡片，不再受 nextReviewAt 限制。
+    if (otherModeIds.has(c.id)) return true;
+    return !c.nextReviewAt || c.nextReviewAt <= Date.now();
+  });
+
+  if (pool.length === 0) pool = cards.filter(eligible);
+
+  // 每天全局最多引入 dailyNewLimit 张真正的新卡；不同模式重复训练已出现过的新卡，不消耗新卡额度。
+  const isNewCard = c => c.srsLevel === 'new' || (!c.lastReviewedAt && !(c.repetitions > 0));
+  const seenNewToday = new Set();
+  Object.keys(todayModes).forEach(m => {
+    if (Array.isArray(todayModes[m])) todayModes[m].forEach(id => {
+      const card = cards.find(c => c.id === id);
+      if (card && isNewCard(card)) seenNewToday.add(id);
     });
-    // 第二层：如果不够，放开时间限制，但仍排除今日已复习过的
-    if (due.length === 0) {
-      due = cards.filter(c => reviewSelectedCats.has(c.category) && masteredFilter(c) && importantFilter(c) && !todayLog.includes(c.id));
-    }
-    // 第三层：如果今日已经复习完所有卡片，允许重新复习（用户可能想多学）
-    if (due.length === 0) {
-      due = cards.filter(c => reviewSelectedCats.has(c.category) && masteredFilter(c) && importantFilter(c));
-    }
-    pool = due;
-  } else {
-    pool = cards.filter(c => reviewSelectedCats.has(c.category) && masteredFilter(c) && importantFilter(c) && !todayLog.includes(c.id));
-    if (pool.length === 0) {
-      pool = cards.filter(c => reviewSelectedCats.has(c.category) && masteredFilter(c) && importantFilter(c));
-    }
-  }
+  });
+  const remainingNewSlots = Math.max(0, dailyNewLimit - seenNewToday.size);
+  const repeatedNewCards = pool.filter(c => isNewCard(c) && seenNewToday.has(c.id));
+  const unseenNewCards = pool.filter(c => isNewCard(c) && !seenNewToday.has(c.id))
+    .sort((a,b) => (b.createdAt || 0) - (a.createdAt || 0));
+  const oldCards = pool.filter(c => !isNewCard(c));
+  pool = [...repeatedNewCards, ...unseenNewCards.slice(0, remainingNewSlots), ...oldCards];
   return pool;
 }
-
 function closeReviewSettings() {
   document.getElementById('reviewSettingsModal').classList.remove('show');
 }
@@ -2345,6 +2248,20 @@ function confirmReview() {
     const now = Date.now();
     pool.forEach(c => ensureSRS(c));
     if (reviewOrder === 'random') {
+      // ★ SRS + 随机：新卡片永远排在最前面；其余卡片再按到期日分组，
+      // 组内随机、组间按记忆曲线到期时间递增。
+      // 新卡片定义：从未完成过一次有效复习（srsLevel=new / repetitions=0 / lastReviewedAt=0）。
+      const isNewCard = (c) => (
+        c.srsLevel === 'new' ||
+        (!c.lastReviewedAt && !(c.repetitions > 0))
+      );
+      const newCards = pool.filter(isNewCard);
+      const reviewCards = pool.filter(c => !isNewCard(c));
+
+      // 新卡片按添加时间从新到旧学习，确保刚添加的卡片优先。
+      const newQueue = [...newCards].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+
+      const reviewPool = reviewCards;
       // ★ SRS + 随机：按“到期日”分组，组内随机，组间严格按日期递增。
       // 例如：今天到期的卡片全部随机出现 → 明天到期的全部随机出现
       // → 后天到期的全部随机出现……
@@ -2359,7 +2276,7 @@ function confirmReview() {
       const dayMs = 86400000;
       const groups = new Map();
 
-      for (const c of pool) {
+      for (const c of reviewPool) {
         let dayOffset = 0;
         if (c.nextReviewAt && c.nextReviewAt > 0) {
           dayOffset = Math.floor((startOfDay(c.nextReviewAt) - todayStart) / dayMs);
@@ -2371,27 +2288,44 @@ function confirmReview() {
         groups.get(key).push(c);
       }
 
-      reviewQueue = [...groups.keys()]
-        .sort((a, b) => a - b)
-        .flatMap(key => shuffle(groups.get(key)));
+      reviewQueue = [
+        ...newQueue,
+        ...[...groups.keys()]
+          .sort((a, b) => a - b)
+          .flatMap(key => shuffle(groups.get(key)))
+      ];
     } else if (reviewOrder === 'sequential') {
-      // SRS + 顺序（新→旧）：先按紧急度（越急越前），再按难度（越难越前），最后按创建时间（新→旧）
-      reviewQueue = [...pool].sort((a, b) => {
+      // SRS + 顺序：先学习新卡片，再按记忆曲线紧急度复习旧卡片。
+      const isNewCard = (c) => (
+        c.srsLevel === 'new' ||
+        (!c.lastReviewedAt && !(c.repetitions > 0))
+      );
+      const newCards = pool.filter(isNewCard)
+        .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+      const reviewCards = pool.filter(c => !isNewCard(c)).sort((a, b) => {
         const u = SRS.urgency(b, now) - SRS.urgency(a, now);
         if (u !== 0) return u;
         const d = (b.difficulty || 2.5) - (a.difficulty || 2.5);
         if (d !== 0) return d;
         return (b.createdAt || 0) - (a.createdAt || 0);
       });
+      reviewQueue = [...newCards, ...reviewCards];
     } else {
-      // 兜底：纯 SRS 排序
-      reviewQueue = [...pool].sort((a, b) => {
+      // 兜底：新卡片优先，其余纯 SRS 排序。
+      const isNewCard = (c) => (
+        c.srsLevel === 'new' ||
+        (!c.lastReviewedAt && !(c.repetitions > 0))
+      );
+      const newCards = pool.filter(isNewCard)
+        .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+      const reviewCards = pool.filter(c => !isNewCard(c)).sort((a, b) => {
         const u = SRS.urgency(b, now) - SRS.urgency(a, now);
         if (u !== 0) return u;
         const d = (b.difficulty || 2.5) - (a.difficulty || 2.5);
         if (d !== 0) return d;
         return (a.createdAt || 0) - (b.createdAt || 0);
       });
+      reviewQueue = [...newCards, ...reviewCards];
     }
   } else if (reviewOrder === 'random') {
     reviewQueue = shuffle([...pool]);
@@ -2422,12 +2356,13 @@ async function exportData() {
     const state = await api('GET', '/state');
     const payload = {
       app: 'knowledge-cards',
-      version: 2,
+      version: 3,
       exportedAt: new Date().toISOString(),
       data: {
         cards: state.cards || [],
         customCategories: state.customCategories || {},
         reviewLogs: state.reviewLogs || {},
+        reviewModeLogs: state.reviewModeLogs || {},
         reviewHistory: state.reviewHistory || {},
         srsSettings: state.srsSettings || {},
         streak: state.streak || { count: 0, lastDate: null },
@@ -2714,7 +2649,7 @@ function renderRecallCard() {
     <span class="recall-category" style="background:${info.color}">${escapeHtml(info.name)}</span>
     ${isImportant?'<span style="position:absolute;top:16px;right:140px;font-size:12px;background:#d78b35;color:#fff;padding:2px 10px;border-radius:20px;font-weight:600;">⭐ 重点</span>':''}
     ${isMastered?'<span style="position:absolute;top:16px;right:70px;font-size:12px;background:var(--success);color:#fff;padding:2px 10px;border-radius:20px;font-weight:600;">✅ 已学会</span>':''}
-    <button class="recall-speak" onclick="speakReviewCard('content',this)" title="发音">🔊</button>
+    <button class="recall-speak" onclick="speakReviewCard('title',this)" title="朗读单词">🔊</button>
     <div class="recall-label">📖 答案（卡片背面）</div>
     <div class="recall-answer md-content">${renderMarkdown(card.content)}</div>
     <div class="recall-label">✍️ 请写出对应的知识点</div>
@@ -2757,13 +2692,7 @@ function submitRecall() {
     currentFinalCorrect = false;
   }
   // 显示结果 + SRS 信息
-  const srsHtml = (card._pendingSrs && currentFinalCorrect !== null)
-    ? `<div style="margin-top:10px;padding-top:10px;border-top:1px dashed rgba(127,127,127,0.3);font-size:13px;">
-         <span style="color:${isCorrect?'var(--success)':'var(--danger)'};font-weight:600;">${SRS.qualityLabel(card._pendingSrs.quality)}</span>
-         · 得分 ${card._pendingSrs.finalScore} · 响应 ${Math.round(responseMs/100)/10}s
-         · 下次复习 <b>${SRS.intervalLabel(card._pendingSrs.interval)}</b>
-       </div>`
-    : '';
+  const srsHtml = isCorrect ? `<div style="margin-top:10px;font-size:13px;color:var(--text-light);">已记录本次复习</div>` : '';
   resultDiv.innerHTML = `<div class="recall-result ${isCorrect?'correct':'wrong'}">
     <div class="recall-result-title">${isCorrect?'✅ 回答正确！':'❌ 回答错误'}</div>
     <div class="recall-correct-answer">正确答案：<b>${escapeHtml(correctAnswer)}</b></div>
@@ -2841,13 +2770,7 @@ function submitDictation() {
     currentAttemptErrors += 1;
     currentFinalCorrect = false;
   }
-  const srsHtml = (card._pendingSrs && currentFinalCorrect !== null)
-    ? `<div style="margin-top:10px;padding-top:10px;border-top:1px dashed rgba(127,127,127,0.3);font-size:13px;">
-         <span style="color:${isCorrect?'var(--success)':'var(--danger)'};font-weight:600;">${SRS.qualityLabel(card._pendingSrs.quality)}</span>
-         · 得分 ${card._pendingSrs.finalScore} · 响应 ${Math.round(responseMs/100)/10}s
-         · 下次复习 <b>${SRS.intervalLabel(card._pendingSrs.interval)}</b>
-       </div>`
-    : '';
+  const srsHtml = isCorrect ? `<div style="margin-top:10px;font-size:13px;color:var(--text-light);">已记录本次复习</div>` : '';
   resultDiv.innerHTML = `<div class="recall-result ${isCorrect?'correct':'wrong'}">
     <div class="recall-result-title">${isCorrect?'✅ 回答正确！':'❌ 回答错误'}</div>
     <div class="recall-correct-answer">正确答案：<b>${escapeHtml(correctAnswer)}</b></div>
@@ -2904,7 +2827,7 @@ async function nextCard() {
   // 构造 SRS 负载（如果有暂存结果）
   let srsPayload = null;
   let responseMsFallback = Math.max(1, Date.now() - currentCardShownAt);
-  if (curCard._pendingSrs) {
+  if (curCard._pendingSrs && !hasSrsCommitToday(id)) {
     srsPayload = curCard._pendingSrs;
     // 更新本地卡片状态
     curCard.difficulty = srsPayload.difficulty;
@@ -2913,6 +2836,7 @@ async function nextCard() {
     curCard.lastReviewedAt = srsPayload.lastReviewedAt;
     curCard.repetitions = srsPayload.repetitions;
     curCard.lapses = srsPayload.lapses;
+    curCard.stability = srsPayload.stability;
     curCard.srsLevel = srsPayload.srsLevel;
     // 同时更新主 cards 数组里的对象（reviewQueue 里是同引用，保险起见同步一次）
     const mainCard = cards.find(c => c.id === id);
@@ -2925,6 +2849,7 @@ async function nextCard() {
         lastReviewedAt: srsPayload.lastReviewedAt,
         repetitions: srsPayload.repetitions,
         lapses: srsPayload.lapses,
+        stability: srsPayload.stability,
         srsLevel: srsPayload.srsLevel
       });
     }
@@ -2941,9 +2866,13 @@ async function nextCard() {
       newInterval: srsPayload.interval,
       newDifficulty: srsPayload.difficulty,
       mode: srsPayload.mode || reviewMode,
-      errorCount: srsPayload.errorCount || 0
+      errorCount: srsPayload.errorCount || 0,
+      stability: srsPayload.stability
     });
     // 清理临时属性
+    delete curCard._pendingSrs;
+  } else if (curCard._pendingSrs && hasSrsCommitToday(id)) {
+    // 同一天不同模式可以重复训练，但同一张卡的 SRS 每天只结算一次。
     delete curCard._pendingSrs;
   } else if (reviewMode === 'recall' || reviewMode === 'dictation') {
     // 用户可能直接点了下一张（没有显式提交或默写/听写未完成就跳）：
@@ -2959,6 +2888,7 @@ async function nextCard() {
       curCard.lastReviewedAt = fallback.lastReviewedAt;
       curCard.repetitions = fallback.repetitions;
       curCard.lapses = fallback.lapses;
+      curCard.stability = fallback.stability;
       curCard.srsLevel = fallback.srsLevel;
       const mainCard = cards.find(c => c.id === id);
       if (mainCard && mainCard !== curCard) {
@@ -2966,17 +2896,26 @@ async function nextCard() {
         Object.assign(mainCard, {
           difficulty: fallback.difficulty, interval: fallback.interval,
           nextReviewAt: fallback.nextReviewAt, lastReviewedAt: fallback.lastReviewedAt,
-          repetitions: fallback.repetitions, lapses: fallback.lapses,
+          repetitions: fallback.repetitions, lapses: fallback.lapses, stability: fallback.stability,
           srsLevel: fallback.srsLevel
         });
       }
     }
   }
+  // 本地记录“当天 + 模式”的训练轨迹。不同模式允许同卡重复，同模式不重复。
+  const dateKey = new Date().toDateString();
+  if (!reviewModeLogs[dateKey]) reviewModeLogs[dateKey] = {};
+  const modeKey = getReviewModeKey(reviewMode);
+  if (!Array.isArray(reviewModeLogs[dateKey][modeKey])) reviewModeLogs[dateKey][modeKey] = [];
+  if (!reviewModeLogs[dateKey][modeKey].includes(id)) reviewModeLogs[dateKey][modeKey].push(id);
+  if (!reviewLogs[dateKey]) reviewLogs[dateKey] = [];
+  if (!reviewLogs[dateKey].includes(id)) reviewLogs[dateKey].push(id);
+
   // 先本地翻页，立即响应
   reviewIndex++; renderReviewCard();
   // 后台同步
   try {
-    const body = srsPayload ? { srs: srsPayload } : undefined;
+    const body = srsPayload ? { mode: modeKey, srs: srsPayload } : { mode: modeKey };
     const res = await api('POST','/review/'+id, body);
     // 如果服务端返回了更新后的个性化阈值，更新本地
     if (res && res.srsSettings) srsSettings = { ...srsSettings, ...res.srsSettings };
