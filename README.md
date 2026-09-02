@@ -39,7 +39,7 @@
 - **数据备份与迁移** 📦：一键导出全部数据为 JSON 备份文件，可导入到任意平台的实例，方便跨设备/跨服务器迁移
 - **密码保护** 🔐：支持设置访问密码，保护隐私
 - **深色模式** 🌙：支持亮色/深色主题切换
-- **PWA 安装** 📲：内置 PWA 壳（`/pwa/`），iPhone/Android 可"添加到主屏幕"作为独立 App 全屏使用（HTTP / HTTPS 均可，纯 HTTP 即可安装）
+- **PWA 安装** 📲：内置 PWA 壳（`/pwa/`），iPhone/Android 可"添加到主屏幕"作为独立 App 全屏使用（纯 HTTP 即可安装）
 - **首次填写服务器地址** 🔗：PWA 壳首次打开时填写服务器地址（默认已填同源地址，一键保存），之后自动连接，App 内可随时用 ⚙ 重新配置
 
 ## 📝 Markdown 语法支持
@@ -394,14 +394,12 @@ sudo systemctl restart knowledge-cards
 
 应用内置了一个 PWA 壳（`/pwa/` 目录，由同一个 node 服务同源提供）。它像原生 App 一样可"安装"到手机主屏幕，全屏运行、带独立图标，并且**首次打开时填写一次服务器地址，之后自动连接**。
 
-> 💡 **不需要 HTTPS 也能装**。本应用采用与「参考工作台」相同的方案：靠 `apple-mobile-web-app-capable` + `apple-touch-icon` 这套 HTML 标签让 iOS **在 HTTP 下**就把网页「添加到主屏幕」变成全屏 App 图标（无浏览器地址栏）。Service Worker（离线壳）只在 HTTPS 下生效，HTTP 下会静默跳过，**不影响安装与使用**。所以 `http://服务器IP:3000/pwa/` 直接就能用。
-
 ### 部署后怎么用（纯 HTTP，局域网即可）
 
 整个部署包（含 `server.js` / `public/` / `pwa/`）部署到服务器并启动后：
 
 1. 手机（与服务器同一 WiFi，或服务有公网 IP）浏览器打开 **`http://服务器IP:3000/pwa/`**（注意路径带 `/pwa/`）
-2. 首次打开会显示设置页，已自动填好**同源地址**（`http://服务器IP:3000`），直接点「保存并打开」即可；也可以改成任何其他能访问到的服务器地址（如另一台 `http://内网IP:3000` 或公网 `https://...`）
+2. 首次打开会显示设置页，已自动填好**同源地址**（`http://服务器IP:3000`），直接点「保存并打开」即可；也可以改成任何其他能访问到的服务器地址（如另一台 `http://内网IP:3000`）
 3. 之后进入就是知识卡片应用，地址已记住；想换服务器可点应用内右上角 **⚙** 重新配置
 
 ### iPhone / iPad（iOS Safari）
@@ -412,56 +410,21 @@ sudo systemctl restart knowledge-cards
 4. 可改名称后点「添加」
 5. 主屏出现「知识卡片」图标，点开即**以独立 App 全屏运行**（无 Safari 地址栏）
 
-> iOS 没有自动弹出的"安装提示"，需手动走「分享 → 添加到主屏幕」。此方式在 HTTP 与 HTTPS 下均可。
+> iOS 没有自动弹出的"安装提示"，需手动走「分享 → 添加到主屏幕」。
 
 ### Android（Chrome / Edge）
 
-- **HTTP 下**：点右上角菜单 → **「添加到主屏幕」**，生成书签式全屏图标（可用）。
-- **HTTPS 下（可选）**：地址栏右侧会出现 **「安装应用」** 图标，安装为真正的 PWA（带离线壳、可放到应用抽屉）。
+- 点右上角菜单 → **「添加到主屏幕」**，生成书签式全屏图标（可用）。
 
 ### 工作原理
 
 - `pwa/index.html`：PWA 壳，内含首次设置页与 🧠 图标；用 `<iframe>` 加载真实应用，**URL 由壳控制**（默认同源），应用本身无需关心服务器地址
 - `pwa/manifest.webmanifest`：定义应用名、图标、全屏（`display: standalone`）、主题色
-- `pwa/service-worker.js`：缓存 PWA 壳（首页/图标），让壳可离线打开；真实应用数据始终实时走网络（**仅 HTTPS 生效，HTTP 下自动跳过**）
+- `pwa/service-worker.js`：缓存 PWA 壳（首页/图标），让壳可离线打开；真实应用数据始终实时走网络
 - `pwa/icons/`：192/512 图标，含 `maskable`，供 iOS/Android 安装图标
 - 关键 meta 标签：`apple-mobile-web-app-capable` + `apple-touch-icon` 是 iOS **HTTP 也能全屏安装**的核心
 
-> 根目录 `public/` 也自带 `manifest.webmanifest` / `sw.js` / `icon.png`，所以直接以 **HTTPS 打开根地址 `/`** 同样可以"添加到主屏幕"，两种方式任选。
-
-## ☁️ （可选）套一层 HTTPS
-
-基础安装**不需要** HTTPS。仅在你想获得以下增强时才需要在这层 HTTP 外面包一个 HTTPS：
-
-- Android 地址栏的「安装应用」原生提示（而非菜单里的「添加到主屏幕」）
-- PWA 离线打开外壳（断网也能进设置页）
-- 把应用暴露到**任意网络**（不局限于同一 WiFi / 公网 IP）
-
-### 方式一：Cloudflare 隧道（免费、无需买证书，推荐用于公网访问）
-
-把 `http://localhost:3000` 通过 Cloudflare 隧道暴露为带浏览器信任证书的 HTTPS 地址：
-
-```bash
-# 服务器上安装 cloudflared
-curl -L https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o /usr/local/bin/cloudflared
-chmod +x /usr/local/bin/cloudflared
-
-# 临时隧道（一行命令，得 https://xxxx.trycloudflare.com，重启会变地址）
-cloudflared tunnel --url http://localhost:3000
-```
-
-- **固定地址（推荐）**：注册一个便宜/免费域名（如 `.xyz`/`.top`，或免费二级域名 `eu.org`），把 NS 托管到 Cloudflare，建一个固定隧道（`cloudflared tunnel create kc` 等），CNAME 指向隧道，得到固定的 `https://cards.你的域名.com`。手机永久可装，任意网络都能访问。
-
-### 方式二：Nginx 反向代理 + 证书
-
-- 有域名：用 Certbot（Let's Encrypt 免费自动证书）反代 `127.0.0.1:3000`
-- 无域名仅内网：用 `openssl` 自签证书，Nginx 监听 443 反代本机 3000；**iOS 需手动信任证书**（设置 → 通用 → 关于本机 → 证书信任设置）
-
-### 装好后
-
-浏览器打开 `https://你的HTTPS地址/pwa/` → 首次填服务器地址（默认同源）→ 安装为 App。数据全部实时走你自己的服务器。
-
-> 后端 `server.js` 已内置 CORS，若你确实把前端与后端分开部署在不同域名，也能正常跨域调用 API。
+> 根目录 `public/` 也自带 `manifest.webmanifest` / `sw.js` / `icon.png`，所以直接打开根地址 `/` 同样可以"添加到主屏幕"，两种方式任选。
 
 ## 🔧 技术说明
 
