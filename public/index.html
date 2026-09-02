@@ -784,6 +784,7 @@ body.dark .tab.active { background:#f3f7f5;color:#252a2d; }
           <button class="settings-item" onclick="openImportModal(); closeSettingsMenu()">📥 导入数据</button>
           <button class="settings-item" onclick="openExportModal(); closeSettingsMenu()">📄 导出 PDF</button>
           <button class="settings-item" onclick="openCategoryModal(); closeSettingsMenu()">🗂️ 分类管理</button>
+          <button class="settings-item" onclick="openReviewDefaults(); closeSettingsMenu()">🎯 复习默认设置</button>
         </div>
       </div>
       </div>
@@ -2062,43 +2063,115 @@ let reviewImportantFilter = 'all';
 let reviewCountMode = '10';
 let reviewUseSRS = true;  // 是否启用记忆曲线
 let dailyNewLimit = 20;   // 每种复习模式每天最多进入的新卡数量
+let reviewSettingsContext = 'start'; // start=开始复习，defaults=设置默认值
+
+function getSystemReviewDefaults() {
+  const hasEnglish = cards.some(c => c.category === 'english');
+  return {
+    categories: hasEnglish ? ['english'] : [...new Set(cards.map(c => c.category))],
+    mode: 'flip',
+    mastered: 'unmastered',
+    important: 'all',
+    count: '10',
+    dailyNewLimit: 20,
+    order: 'random',
+    srs: true
+  };
+}
+
+function getReviewDefaults() {
+  const fallback = getSystemReviewDefaults();
+  try {
+    const saved = JSON.parse(localStorage.getItem('kc_review_defaults') || 'null');
+    if (!saved || typeof saved !== 'object') return fallback;
+    const validCats = new Set(cards.map(c => c.category));
+    const categories = Array.isArray(saved.categories)
+      ? saved.categories.filter(c => validCats.has(c))
+      : fallback.categories;
+    return {
+      categories: categories.length ? categories : fallback.categories,
+      mode: ['flip','recall','dictation'].includes(saved.mode) ? saved.mode : fallback.mode,
+      mastered: ['all','unmastered','mastered'].includes(saved.mastered) ? saved.mastered : fallback.mastered,
+      important: ['all','important','normal'].includes(saved.important) ? saved.important : fallback.important,
+      count: saved.count === 'all' || (parseInt(saved.count) > 0) ? String(saved.count) : fallback.count,
+      dailyNewLimit: Math.max(1, Math.min(999, parseInt(saved.dailyNewLimit) || fallback.dailyNewLimit)),
+      order: ['random','sequential','reverse'].includes(saved.order) ? saved.order : fallback.order,
+      srs: saved.srs !== false
+    };
+  } catch(e) { return fallback; }
+}
+
+function applyReviewDefaultState() {
+  const d = getReviewDefaults();
+  reviewSelectedCats = new Set(d.categories);
+  reviewMode = d.mode;
+  reviewMasteredFilter = d.mastered;
+  reviewImportantFilter = d.important;
+  reviewCountMode = d.count;
+  reviewOrder = d.order;
+  reviewUseSRS = d.srs;
+  dailyNewLimit = d.dailyNewLimit;
+}
+
+function saveReviewDefaults() {
+  const custom = document.getElementById('reviewCount')?.value;
+  const count = custom && parseInt(custom) > 0 ? String(custom) : reviewCountMode;
+  const data = {
+    categories: [...reviewSelectedCats], mode: reviewMode, mastered: reviewMasteredFilter,
+    important: reviewImportantFilter, count, dailyNewLimit, order: reviewOrder, srs: reviewUseSRS
+  };
+  try { localStorage.setItem('kc_review_defaults', JSON.stringify(data)); } catch(e) {}
+  showToast('复习默认设置已保存');
+}
+
+function resetReviewDefaults() {
+  try { localStorage.removeItem('kc_review_defaults'); } catch(e) {}
+  applyReviewDefaultState();
+  syncReviewSettingsUI();
+  updateReviewSummary();
+  showToast('已恢复系统默认设置');
+}
+
+function syncReviewSettingsUI() {
+  document.querySelectorAll('#reviewModeOptions .order-option').forEach(el => el.classList.toggle('active', el.dataset.rmode === reviewMode));
+  document.querySelectorAll('#masteredOptions .order-option').forEach(el => el.classList.toggle('active', el.dataset.mastered === reviewMasteredFilter));
+  document.querySelectorAll('#importantOptions .order-option').forEach(el => el.classList.toggle('active', el.dataset.important === reviewImportantFilter));
+  document.querySelectorAll('#orderOptions .order-option').forEach(el => el.classList.toggle('active', el.dataset.order === reviewOrder));
+  document.querySelectorAll('#srsOptions .order-option').forEach(el => el.classList.toggle('active', el.dataset.srs === (reviewUseSRS ? 'on' : 'off')));
+  document.querySelectorAll('#countOptions .order-option').forEach(el => el.classList.toggle('active', el.dataset.count === reviewCountMode));
+  const countInput = document.getElementById('reviewCount');
+  if (countInput) countInput.value = ['10','all'].includes(reviewCountMode) ? '' : reviewCountMode;
+  const dailyInput = document.getElementById('dailyNewLimit');
+  if (dailyInput) dailyInput.value = dailyNewLimit;
+  const hint = document.getElementById('reviewModeHint');
+  if (hint) hint.textContent = reviewMode === 'flip' ? '翻卡模式：看问题，点击翻转看答案' : reviewMode === 'recall' ? '默写模式：看答案，手写知识点，提交后对比' : '听写模式：仅听发音，写出知识点，提交后对比';
+}
+
+function openReviewDefaults() {
+  if (cards.length === 0) { showToast('没有卡片可设置复习默认值'); return; }
+  reviewSettingsContext = 'defaults';
+  openReviewSettings();
+  document.querySelector('#reviewSettingsModal .modal-title').textContent = '🎯 复习默认设置';
+  document.querySelector('#reviewSettingsModal .modal-actions').innerHTML =
+    '<button class="btn btn-outline" onclick="closeReviewSettings()">取消</button>' +
+    '<button class="btn btn-outline" onclick="resetReviewDefaults()">恢复系统默认</button>' +
+    '<button class="btn btn-primary" onclick="saveReviewDefaults(); closeReviewSettings()">💾 保存默认设置</button>';
+}
 
 function openReviewSettings() {
   if (cards.length === 0) { showToast('没有卡片可复习'); return; }
-  // 默认选中英语分类
-  reviewSelectedCats = new Set();
-  reviewSelectedCats.add('english');
-  // 确保英语分类存在卡片，否则回退全选
-  if (!cards.some(c => c.category === 'english')) {
-    Object.keys(getAllCategories()).forEach(k => {
-      if (cards.some(c => c.category === k)) reviewSelectedCats.add(k);
-    });
+  // 打开时始终加载已保存的复习默认值；在“每日复习”中可以临时调整，不会覆盖默认值。
+  applyReviewDefaultState();
+  syncReviewSettingsUI();
+  if (reviewSettingsContext === 'start') {
+    document.querySelector('#reviewSettingsModal .modal-title').textContent = '🎲 复习设置';
+    document.querySelector('#reviewSettingsModal .modal-actions').innerHTML =
+      '<button class="btn btn-outline" onclick="closeReviewSettings()">取消</button>' +
+      '<button class="btn btn-primary" onclick="confirmReview()">开始复习</button>';
   }
-  reviewOrder = 'random';
-  document.querySelector('#orderOptions .order-option.active')?.classList.remove('active');
-  document.querySelector('#orderOptions .order-option[data-order="random"]').classList.add('active');
-  reviewMode = 'flip';
-  document.querySelector('#reviewModeOptions .order-option.active')?.classList.remove('active');
-  document.querySelector('#reviewModeOptions .order-option[data-rmode="flip"]').classList.add('active');
-  document.getElementById('reviewModeHint').textContent = '翻卡模式：看问题，点击翻转看答案';
-  reviewMasteredFilter = 'unmastered';
-  document.querySelector('#masteredOptions .order-option.active')?.classList.remove('active');
-  document.querySelector('#masteredOptions .order-option[data-mastered="unmastered"]').classList.add('active');
-  reviewImportantFilter = 'all';
-  document.querySelector('#importantOptions .order-option.active')?.classList.remove('active');
-  document.querySelector('#importantOptions .order-option[data-important="all"]').classList.add('active');
-  reviewCountMode = '10';
-  document.querySelector('#countOptions .order-option.active')?.classList.remove('active');
-  document.querySelector('#countOptions .order-option[data-count="10"]').classList.add('active');
-  document.getElementById('reviewCount').value = '';
-  const dailyNewInput = document.getElementById('dailyNewLimit');
-  if (dailyNewInput) dailyNewInput.value = dailyNewLimit;
-  // SRS 开关初始化
-  try { dailyNewLimit = Math.max(1, Math.min(999, parseInt(localStorage.getItem('kc_daily_new_limit') || '20'))); } catch(e) {}
-  reviewUseSRS = (typeof srsEnabled === 'boolean') ? srsEnabled : true;
-  document.querySelectorAll('#srsOptions .order-option').forEach(el => el.classList.remove('active'));
-  const srsInitVal = reviewUseSRS ? 'on' : 'off';
-  document.querySelector(`#srsOptions .order-option[data-srs="${srsInitVal}"]`).classList.add('active');
+  renderReviewCategoryCheckboxes();
+  updateReviewSummary();
+  document.getElementById('reviewSettingsModal').classList.add('show');
   // 计算是否已个性化（全局正确历史样本数是否达到阈值）
   const totalCorrectSamples = Object.values(reviewHistory || {}).flat().filter(h => h.correct).length;
   const personalized = totalCorrectSamples >= (srsSettings.historyForPersonalization || 20);
@@ -2289,6 +2362,7 @@ function getReviewPool() {
 }
 function closeReviewSettings() {
   document.getElementById('reviewSettingsModal').classList.remove('show');
+  reviewSettingsContext = 'start';
 }
 
 function confirmReview() {
