@@ -1522,6 +1522,44 @@ function speakIOS(text,isEnglish,btn){
   _iosSpeechTimer=setTimeout(()=>{_iosSpeechTimer=null;if(seq===_iosSpeechSeq)_iosNext(seq,isEnglish,btn);},180);
 }
 function _looksEnglish(text) { const s=String(text||''); const letters=(s.match(/[A-Za-z]/g)||[]).length; const cjk=(s.match(/[\u3400-\u9fff]/g)||[]).length; return letters>=8 && letters>=cjk*2; }
+function speakCardDetailDirect(card, btn) {
+  if (!card || !synth) return;
+  // 放大卡片只朗读正面内容（title），绝不朗读背面的 content。
+  const text = stripMarkdownForSpeech(card.title || '');
+  const isEnglish = card.category === 'english' || _looksEnglish(text);
+  if (!text.trim()) return;
+
+  // 放大卡片的按钮直接在真实 click 回调中调用 speechSynthesis。
+  // 不经过 speakDesktop/speakIOS 内部的延迟 timer，避免部分浏览器
+  // 在弹窗场景下把语音请求判定为已经失去用户手势。
+  _desktopStop();
+  _iosStop();
+  if (btn) btn.classList.add('playing');
+
+  const chunks = _isIOS ? _iosSplit(text, isEnglish) : _chromeSplitSpeech(text, isEnglish);
+  if (!chunks.length) return;
+
+  let finished = 0;
+  const finish = () => {
+    finished++;
+    if (finished >= chunks.length && btn) btn.classList.remove('playing');
+  };
+
+  // 所有 utterance 都在本次用户点击的同步调用栈中加入队列。
+  chunks.forEach((chunk) => {
+    const u = new SpeechSynthesisUtterance(chunk);
+    u.lang = isEnglish ? 'en-US' : 'zh-CN';
+    u.rate = 0.95;
+    if (!_isIOS) {
+      const voice = _selectChromeVoice(isEnglish);
+      if (voice) { u.voice = voice; u.lang = voice.lang || u.lang; }
+    }
+    u.onend = finish;
+    u.onerror = finish;
+    synth.speak(u);
+  });
+}
+
 function speakCard(id, btn) {
   const card = cards.find(c => c.id === id);
   if (!card) return;
@@ -1854,8 +1892,24 @@ function openCardDetail(id) {
   ].filter(Boolean).join('');
   const speakBtn = document.getElementById('cardDetailSpeakBtn');
   const editBtn = document.getElementById('cardDetailEditBtn');
-  speakBtn.onclick = () => speakCard(card.id, speakBtn);
-  editBtn.onclick = () => { closeCardDetail(); editCard(card.id); };
+  speakBtn.onclick = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (speakBtn.classList.contains('playing')) {
+      if (synth) synth.cancel();
+      _desktopStop();
+      _iosStop();
+      speakBtn.classList.remove('playing');
+      return;
+    }
+    speakCardDetailDirect(card, speakBtn);
+  };
+  editBtn.onclick = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    closeCardDetail();
+    editCard(card.id);
+  };
   detail.classList.add('show');
   document.body.classList.add('modal-open');
 }
