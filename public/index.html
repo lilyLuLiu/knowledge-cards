@@ -2815,6 +2815,10 @@ function submitRecall() {
     currentFinalCorrect = true;
     const result = SRS.processReview(card, { correct: true, responseMs, mode: 'recall', errorCount: currentAttemptErrors });
     card._pendingSrs = result;
+    // 默写模式答对后，自动朗读卡片正面（title），不朗读背面的 content。
+    // submitRecall() 本身由用户点击/回车触发，因此浏览器允许在这里启动 TTS。
+    const speakBtn = document.querySelector('.recall-speak');
+    setTimeout(() => speakReviewCard('title', speakBtn), 80);
   } else {
     currentAttemptErrors += 1;
     currentFinalCorrect = false;
