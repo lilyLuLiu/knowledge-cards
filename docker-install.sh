@@ -5,22 +5,15 @@ set -e
 #  知识卡片 · Docker 一键部署脚本
 #######################################
 # 用法:
-#   sudo bash docker-install.sh
-#   sudo bash docker-install.sh --port 8080 --password mypass
-#   sudo bash docker-install.sh --data-dir /mnt/kc-data --name kc
-#
-# 说明:
-#   - 脚本所在目录需包含 Dockerfile / server.js / public / pwa
-#   - 镜像名默认 knowledge-cards，容器名默认 knowledge-cards
-#   - 数据持久化在 <data-dir>（默认 /opt/knowledge-cards-data），挂载到容器 /data
-#   - 容器内固定监听 3000，主机通过 -p <port>:3000 映射
-#   - 重新运行本脚本会重建容器，数据卷保持不变，不会丢失
+#   .env文件存储 PORT，DATA_DIR，PASSWORD的设置
+
+PORT=$(grep '^PORT=' .env | cut -d '=' -f2-) || PORT=3000
+DATA_DIR=$(grep '^DATA_DIR=' .env | cut -d '=' -f2-) || DATA_DIR=/opt/workstation-data
+PASSWORD=$(grep '^PASSWORD=' .env | cut -d '=' -f2-) || PASSWORD=
 
 IMAGE_NAME="knowledge-cards"
 CONTAINER_NAME="knowledge-cards"
-DEFAULT_PORT=3000
-DEFAULT_DATA_DIR="/opt/knowledge-cards-data"
-PASSWORD=""
+
 
 # 颜色输出
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; CYAN='\033[0;36m'; NC='\033[0m'
@@ -29,22 +22,7 @@ ok()    { echo -e "${GREEN}[OK]${NC}    $1"; }
 warn()  { echo -e "${YELLOW}[WARN]${NC}  $1"; }
 error() { echo -e "${RED}[ERROR]${NC} $1"; }
 
-# ===== 解析参数 =====
-PORT=$DEFAULT_PORT
-DATA_DIR=$DEFAULT_DATA_DIR
-while [[ $# -gt 0 ]]; do
-  case $1 in
-    --port) PORT="$2"; shift 2 ;;
-    --password) PASSWORD="$2"; shift 2 ;;
-    --data-dir) DATA_DIR="$2"; shift 2 ;;
-    --image) IMAGE_NAME="$2"; shift 2 ;;
-    --name) CONTAINER_NAME="$2"; shift 2 ;;
-    -h|--help)
-      grep '^#' "$0" | sed 's/^#\s\?//'
-      exit 0 ;;
-    *) error "未知参数: $1"; exit 1 ;;
-  esac
-done
+
 
 echo ""
 echo "============================================"
@@ -94,7 +72,7 @@ docker run -d \
   --restart unless-stopped \
   -p "${PORT}:3000" \
   -e "PASSWORD=${PASSWORD}" \
-  -v "${DATA_DIR}:/data" \
+  -v "${DATA_DIR}:/data:Z" \
   "$IMAGE_NAME" >/dev/null
 
 # 等待启动
