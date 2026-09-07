@@ -3125,11 +3125,21 @@ document.addEventListener('keydown', (e) => {
     else if (document.getElementById('addModal').classList.contains('show')) closeModal();
   }
   if (document.getElementById('reviewOverlay').classList.contains('show') && reviewMode === 'flip') {
-    if (e.key===' ') { e.preventDefault(); flipCard(); }
-    else if (e.key==='Enter') { e.preventDefault(); nextCard(); }
-    else if (e.key==='ArrowRight') nextCard();
-    else if (e.key==='ArrowLeft') prevCard();
-    else if (e.key==='s'||e.key==='S') { e.preventDefault(); const flipped=document.getElementById('flashcard')&&document.getElementById('flashcard').classList.contains('flipped'); speakReviewCard(flipped?'content':'title'); }
+    // 翻卡模式快捷键：空格翻卡，Enter 发音，左右箭头切换卡片。
+    if (e.key===' ') {
+      e.preventDefault();
+      flipCard();
+    } else if (e.key==='Enter') {
+      e.preventDefault();
+      const flipped = document.getElementById('flashcard')?.classList.contains('flipped');
+      speakReviewCard(flipped ? 'content' : 'title');
+    } else if (e.key==='ArrowRight') {
+      e.preventDefault();
+      nextCard();
+    } else if (e.key==='ArrowLeft') {
+      e.preventDefault();
+      prevCard();
+    }
   }
   if (document.getElementById('reviewOverlay').classList.contains('show') && (reviewMode === 'recall' || reviewMode === 'dictation')) {
     if (e.key==='Enter') {
