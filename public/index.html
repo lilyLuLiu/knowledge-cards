@@ -230,6 +230,12 @@ body.dark .knowledge-card.mastered .card-date { color:#61736d; }
 .flashcard-front { background:var(--card-bg); border:2px solid var(--primary-light); }
 .flashcard-back { background:linear-gradient(135deg, var(--primary), var(--primary-light)); color:#fff; transform:rotateY(180deg); }
 .flashcard-category { padding:4px 16px; border-radius:20px; font-size:12px; font-weight:600; margin-bottom:20px; color:#fff; }
+.review-card-meta { display:flex; align-items:center; justify-content:center; gap:8px; flex-wrap:wrap; margin-bottom:14px; font-size:12px; }
+.review-card-type { padding:4px 10px; border-radius:999px; font-weight:700; border:1px solid transparent; }
+.review-card-type.due { background:rgba(225,112,85,0.12); color:var(--danger); border-color:rgba(225,112,85,0.35); }
+.review-card-type.long-term { background:rgba(200,155,74,0.14); color:#9a711e; border-color:rgba(200,155,74,0.4); }
+.review-card-type.normal { background:rgba(123,137,133,0.12); color:var(--text-light); border-color:var(--border); }
+.review-card-last-review { color:var(--text-light); padding:4px 10px; border-radius:999px; background:var(--bg); border:1px solid var(--border); }
 .flashcard-label { font-size:13px; color:var(--text-light); text-transform:uppercase; letter-spacing:1px; margin-bottom:12px; }
 .flashcard-back .flashcard-label { color:rgba(255,255,255,0.7); }
 .flashcard-title { font-size:26px; font-weight:700; line-height:1.4; margin-bottom:16px; }
@@ -2328,23 +2334,62 @@ function getReviewPool() {
   Object.keys(todayModes).forEach(m => {
     if (m !== getReviewModeKey(reviewMode) && Array.isArray(todayModes[m])) todayModes[m].forEach(id => otherModeIds.add(id));
   });
+  const now = Date.now();
+  const dayMs = 86400000;
   const masteredFilter = c => reviewMasteredFilter === 'mastered' ? !!c.mastered : reviewMasteredFilter === 'unmastered' ? !c.mastered : true;
   const importantFilter = c => reviewImportantFilter === 'important' ? !!c.important : reviewImportantFilter === 'normal' ? !c.important : true;
   const eligible = c => reviewSelectedCats.has(c.category) && masteredFilter(c) && importantFilter(c) && !todayModeSet.has(c.id);
+  const isNewCard = c => c.srsLevel === 'new' || (!c.lastReviewedAt && !(c.repetitions > 0));
+
+  // “长期未复习”候选：即使 SRS 计划的下一次复习日期还没到，
+  // 只要实际距离上次复习已经接近计划间隔，就允许被抽查，防止旧卡长期消失。
+  // ageRatio = 实际经过时间 / 当前计划间隔。
+  // >= 0.80：进入长期回顾池；>= 1.00：正常到期。
+  const isLongTermReview = c => {
+    if (isNewCard(c) || !c.lastReviewedAt || !c.interval || c.interval <= 0) return false;
+    const actualDays = Math.max(0, (now - c.lastReviewedAt) / dayMs);
+    const ageRatio = actualDays / Math.max(1, c.interval);
+    return actualDays >= 7 && ageRatio >= 0.80;
+  };
 
   let pool = cards.filter(c => {
     if (!eligible(c)) return false;
     if (!reviewUseSRS) return true;
     ensureSRS(c);
-    // 不同模式当天允许重复训练：已经在其它模式出现过的卡片，不再受 nextReviewAt 限制。
+    // 不同模式当天允许重复训练：其它模式已经出现过的卡片可以再次训练。
     if (otherModeIds.has(c.id)) return true;
-    return !c.nextReviewAt || c.nextReviewAt <= Date.now();
+    // SRS 主池：到期卡 + 长期未复习卡。
+    return !c.nextReviewAt || c.nextReviewAt <= now || isLongTermReview(c);
   });
+
+  // 如果当天的“到期 + 长期未复习”不足以填满用户设置的复习数量，
+  // 用普通卡补足，但不再随机抽取，而是按“最久没有出现”的顺序均匀轮换。
+  // 这样卡片数量很多时，也不会因为纯随机而让某些普通卡长期抽不到。
+  if (reviewUseSRS && reviewCountMode !== 'all') {
+    const targetCount = Math.max(0, parseInt(reviewCountMode) || 0);
+    if (targetCount > pool.length) {
+      const poolIds = new Set(pool.map(c => c.id));
+      const normalCandidates = cards.filter(c => {
+        if (!eligible(c) || poolIds.has(c.id) || isNewCard(c)) return false;
+        ensureSRS(c);
+        // 普通卡：尚未到期，也没有进入长期未复习候选。
+        if (c.nextReviewAt && c.nextReviewAt > now && !isLongTermReview(c)) return true;
+        return false;
+      }).sort((a, b) => {
+        // 从最久没有复习的开始，保证长期均匀轮换。
+        const aLast = a.lastReviewedAt || a.createdAt || 0;
+        const bLast = b.lastReviewedAt || b.createdAt || 0;
+        if (aLast !== bLast) return aLast - bLast;
+        return (a.createdAt || 0) - (b.createdAt || 0);
+      });
+      const need = Math.max(0, targetCount - pool.length);
+      pool = [...pool, ...normalCandidates.slice(0, need)];
+    }
+  }
 
   if (pool.length === 0) pool = cards.filter(eligible);
 
   // 每天全局最多引入 dailyNewLimit 张真正的新卡；不同模式重复训练已出现过的新卡，不消耗新卡额度。
-  const isNewCard = c => c.srsLevel === 'new' || (!c.lastReviewedAt && !(c.repetitions > 0));
   const seenNewToday = new Set();
   Object.keys(todayModes).forEach(m => {
     if (Array.isArray(todayModes[m])) todayModes[m].forEach(id => {
@@ -2462,8 +2507,68 @@ function confirmReview() {
   } else {
     reviewQueue = [...pool].sort((a,b) => a.createdAt - b.createdAt);
   }
-  // 限制数量
-  if (maxCount > 0 && reviewQueue.length > maxCount) {
+  // ★ 长期未复习保护机制：在有限的每日复习数量中，强制保留一部分名额给“快到期但长期没见过”的旧卡。
+  // 这样即使新卡和普通到期卡很多，几周/月前学过的单词也不会长期消失。
+  if (reviewUseSRS && maxCount > 0 && reviewQueue.length > maxCount) {
+    const nowForRotation = Date.now();
+    const dayMsForRotation = 86400000;
+    const isNewForRotation = c => (
+      c.srsLevel === 'new' ||
+      (!c.lastReviewedAt && !(c.repetitions > 0))
+    );
+    const isLongTermForRotation = c => {
+      if (isNewForRotation(c) || !c.lastReviewedAt || !c.interval || c.interval <= 0) return false;
+      const actualDays = Math.max(0, (nowForRotation - c.lastReviewedAt) / dayMsForRotation);
+      const ageRatio = actualDays / Math.max(1, c.interval);
+      // 只保护“尚未真正到期”的长期卡；已经到期的卡继续由正常 SRS 优先级处理。
+      return c.nextReviewAt > nowForRotation && actualDays >= 7 && ageRatio >= 0.80;
+    };
+
+    const longTermCandidates = reviewQueue
+      .filter(isLongTermForRotation)
+      .sort((a, b) => {
+        const ageA = ((nowForRotation - a.lastReviewedAt) / dayMsForRotation) / Math.max(1, a.interval || 1);
+        const ageB = ((nowForRotation - b.lastReviewedAt) / dayMsForRotation) / Math.max(1, b.interval || 1);
+        return ageB - ageA;
+      });
+
+    // 默认拿 20% 的每日名额做长期轮换；至少 1 张，最多不超过长期候选数量。
+    const longTermSlots = Math.min(
+      longTermCandidates.length,
+      Math.max(1, Math.floor(maxCount * 0.20))
+    );
+
+    if (longTermSlots > 0) {
+      const selectedLongTerm = longTermCandidates.slice(0, longTermSlots);
+      const selectedIds = new Set(selectedLongTerm.map(c => c.id));
+      const normalQueue = reviewQueue.filter(c => !selectedIds.has(c.id));
+      // 普通卡不再纯随机：按上次复习时间从旧到新轮换。
+      // 到期卡仍保持原有 SRS 优先级，新卡也继续保持最前面的优先级。
+      const isNormalCardForRotation = c => {
+        const meta = getReviewCardMeta(c);
+        return meta.type === '普通';
+      };
+      const rotatedNormal = normalQueue.filter(isNormalCardForRotation).sort((a, b) => {
+        const aLast = a.lastReviewedAt || a.createdAt || 0;
+        const bLast = b.lastReviewedAt || b.createdAt || 0;
+        if (aLast !== bLast) return aLast - bLast;
+        return (a.createdAt || 0) - (b.createdAt || 0);
+      });
+      const otherQueue = normalQueue.filter(c => !isNormalCardForRotation(c));
+      const orderedNormalQueue = [
+        ...otherQueue,
+        ...rotatedNormal
+      ];
+      // 保留前 maxCount-longTermSlots 个正常卡片（新卡仍然保持最前面的优先级），
+      // 再把长期卡放到本次复习的后段，确保它们一定进入今天的复习。
+      reviewQueue = [
+        ...orderedNormalQueue.slice(0, Math.max(0, maxCount - longTermSlots)),
+        ...selectedLongTerm
+      ];
+    } else {
+      reviewQueue = reviewQueue.slice(0, maxCount);
+    }
+  } else if (maxCount > 0 && reviewQueue.length > maxCount) {
     reviewQueue = reviewQueue.slice(0, maxCount);
   }
   if (reviewQueue.length === 0) { showToast('没有卡片可复习'); return; }
@@ -2736,6 +2841,21 @@ function doExportPDF() {
 
 function shuffle(arr) { const a=[...arr]; for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a; }
 
+function getReviewCardMeta(card) {
+  const now = Date.now();
+  const dayMs = 86400000;
+  const isNew = card.srsLevel === 'new' || (!card.lastReviewedAt && !(card.repetitions > 0));
+  const isDue = isNew || !card.nextReviewAt || card.nextReviewAt <= now;
+  const actualDays = card.lastReviewedAt ? Math.max(0, (now - card.lastReviewedAt) / dayMs) : null;
+  const ageRatio = (actualDays !== null && card.interval > 0) ? actualDays / Math.max(1, card.interval) : 0;
+  const isLongTerm = !isDue && !isNew && actualDays !== null && card.interval > 0 && actualDays >= 7 && ageRatio >= 0.80;
+  let type = '普通', cls = 'normal', icon = '📚';
+  if (isDue) { type = '到期'; cls = 'due'; icon = '⏰'; }
+  else if (isLongTerm) { type = '长期未复习'; cls = 'long-term'; icon = '🕒'; }
+  const lastReviewText = actualDays === null ? '上次复习：尚未复习' : `上次复习：${Math.floor(actualDays)}天前`;
+  return { type, cls, icon, lastReviewText };
+}
+
 function renderReviewCard() {
   const body = document.getElementById('reviewBody');
   document.getElementById('reviewIndex').textContent = reviewIndex+1;
@@ -2754,8 +2874,10 @@ function renderReviewCard() {
   const isMastered = !!card.mastered;
   const isImportant = !!card.important;
   ensureSRS(card);
+  const reviewMeta = getReviewCardMeta(card);
+  const reviewMetaHtml = `<div class="review-card-meta"><span class="review-card-type ${reviewMeta.cls}">${reviewMeta.icon} ${reviewMeta.type}</span><span class="review-card-last-review">${reviewMeta.lastReviewText}</span></div>`;
   // 翻卡模式：先看问题 → 点击翻面看答案 → 下一张（不强制自评）
-  body.innerHTML = `<div class="flashcard" id="flashcard" onclick="flipCard()"><div class="flashcard-inner">
+  body.innerHTML = `${reviewMetaHtml}<div class="flashcard" id="flashcard" onclick="flipCard()"><div class="flashcard-inner">
     <div class="flashcard-front"><span class="flashcard-category" style="background:${info.color}">${escapeHtml(info.name)}</span>${isImportant?'<span class="flashcard-important-tag">⭐ 重点</span>':''}${isMastered?'<span class="flashcard-mastered-tag">✅ 已学会</span>':''}<button class="flashcard-speak" onclick="event.stopPropagation();speakReviewCard('title',this)" title="发音">🔊</button><div class="flashcard-label">问题</div><div class="flashcard-title">${escapeHtml(card.title)}</div><div class="flashcard-hint">👆 点击卡片查看答案</div></div>
     <div class="flashcard-back"><span class="flashcard-category" style="background:rgba(255,255,255,0.25)">${escapeHtml(info.name)}</span><button class="flashcard-speak" onclick="event.stopPropagation();speakReviewCard('content',this)" title="发音">🔊</button><div class="flashcard-label">答案</div><div class="flashcard-content md-content">${renderMarkdown(card.content)}</div><div class="flashcard-hint">👆 点击返回问题 · 看完点「下一张」继续</div></div>
   </div></div>
@@ -2773,7 +2895,9 @@ function renderRecallCard() {
   const card = reviewQueue[reviewIndex], info = getCategoryInfo(card.category);
   const isMastered = !!card.mastered;
   const isImportant = !!card.important;
-  body.innerHTML = `<div class="recall-card">
+  const reviewMeta = getReviewCardMeta(card);
+  const reviewMetaHtml = `<div class="review-card-meta"><span class="review-card-type ${reviewMeta.cls}">${reviewMeta.icon} ${reviewMeta.type}</span><span class="review-card-last-review">${reviewMeta.lastReviewText}</span></div>`;
+  body.innerHTML = `${reviewMetaHtml}<div class="recall-card">
     <span class="recall-category" style="background:${info.color}">${escapeHtml(info.name)}</span>
     ${isImportant?'<span style="position:absolute;top:16px;right:140px;font-size:12px;background:#d78b35;color:#fff;padding:2px 10px;border-radius:20px;font-weight:600;">⭐ 重点</span>':''}
     ${isMastered?'<span style="position:absolute;top:16px;right:70px;font-size:12px;background:var(--success);color:#fff;padding:2px 10px;border-radius:20px;font-weight:600;">✅ 已学会</span>':''}
@@ -2841,8 +2965,10 @@ function renderDictationCard() {
   const card = reviewQueue[reviewIndex], info = getCategoryInfo(card.category);
   const isMastered = !!card.mastered;
   const isImportant = !!card.important;
+  const reviewMeta = getReviewCardMeta(card);
+  const reviewMetaHtml = `<div class="review-card-meta"><span class="review-card-type ${reviewMeta.cls}">${reviewMeta.icon} ${reviewMeta.type}</span><span class="review-card-last-review">${reviewMeta.lastReviewText}</span></div>`;
   const isEnglish = card.category === 'english';
-  body.innerHTML = `<div class="recall-card">
+  body.innerHTML = `${reviewMetaHtml}<div class="recall-card">
     <span class="recall-category" style="background:${info.color}">${escapeHtml(info.name)}</span>
     ${isImportant?'<span style="position:absolute;top:16px;right:140px;font-size:12px;background:#d78b35;color:#fff;padding:2px 10px;border-radius:20px;font-weight:600;">⭐ 重点</span>':''}
     ${isMastered?'<span style="position:absolute;top:16px;right:70px;font-size:12px;background:var(--success);color:#fff;padding:2px 10px;border-radius:20px;font-weight:600;">✅ 已学会</span>':''}
