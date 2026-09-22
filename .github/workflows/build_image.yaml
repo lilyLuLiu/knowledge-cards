@@ -1,0 +1,35 @@
+name: image-builder
+
+on:
+  push:
+    branches: [ main ]     
+    paths: ['public/**', 'server.js' ]
+    
+permissions:
+  contents: read
+  packages: write
+  
+jobs:
+  build:
+    name: build
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build image for Release
+        run: |
+          docker build -t ghcr.io/lilyluliu/knowledge-card:latest .
+
+      - name: Log in to ghcr.io
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Push s3-uploader
+        run: |
+          docker push ghcr.io/lilyluliu/knowledge-card:latest
+
+  
