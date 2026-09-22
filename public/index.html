@@ -759,7 +759,7 @@ body.dark .tab.active { background:#f3f7f5;color:#252a2d; }
   <div class="logo"><span class="logo-icon">🧠</span><span>知识卡片</span><span class="sync-indicator"><span class="sync-dot"></span>已同步</span></div>
   <div class="header-actions">
     <button class="btn-icon" onclick="toggleTheme()" id="themeBtn" title="切换主题">🌙</button>
-    <button class="btn btn-primary btn-sm" onclick="openReviewSettings()">🎲 每日复习</button>
+    <button class="btn btn-primary btn-sm" onclick="startReview()">🎲 每日复习</button>
   </div>
 </div>
 
@@ -1038,6 +1038,21 @@ body.dark .tab.active { background:#f3f7f5;color:#252a2d; }
 <div class="toast" id="toast"></div>
 
 <script>
+// ===== 翻卡模式 Enter 键最高优先级拦截 =====
+// 使用 capture + stopImmediatePropagation，避免焦点落在“下一张”按钮时，
+// Enter 触发按钮的默认 click，从而误跳到下一张。
+document.addEventListener('keydown', function(e) {
+  const overlay = document.getElementById('reviewOverlay');
+  if (!overlay || !overlay.classList.contains('show')) return;
+  if (window.reviewMode !== 'flip' || e.key !== 'Enter') return;
+  e.preventDefault();
+  e.stopPropagation();
+  e.stopImmediatePropagation();
+  if (typeof window.speakReviewCardDirect === 'function') {
+    window.speakReviewCardDirect('title');
+  }
+}, true);
+
 const defaultCategories = { english:{name:'英语',color:'#c85d4b'}, programming:{name:'编程',color:'#3f8f86'}, math:{name:'数学',color:'#008f7a'}, science:{name:'科学',color:'#a46b7c'}, history:{name:'历史',color:'#c89b4a'}, language:{name:'语言',color:'#4f8f8a'}, other:{name:'其他',color:'#7b8985'} };
 let cards=[], customCategories={}, reviewLogs={}, reviewModeLogs={}, streak={count:0,lastDate:null}, deletedDefaults=[];
 let currentFilter='all', editingId=null, reviewQueue=[], reviewIndex=0;
@@ -1584,6 +1599,59 @@ function speakReviewCard(field, btn) {
   const isEnglish = card.category === 'english' || _looksEnglish(card[field] || '');
   if (_isIOS) speakIOS(card[field] || '', isEnglish, btn);
   else speakDesktop(card[field] || '', isEnglish, btn);
+}
+
+// 翻卡模式键盘 Enter 必须直接在 keydown 的用户手势调用栈中启动 TTS。
+// speakDesktop()/speakIOS() 为了兼容 Safari/Chrome 使用了延迟 timer，
+// 键盘 Enter 经过 timer 后部分浏览器会认为已经失去用户手势，从而不播放。
+function speakReviewCardDirect(field = 'title', btn) {
+  const card = reviewQueue[reviewIndex];
+  const speech = window.speechSynthesis;
+  if (!card || !speech) {
+    if (!speech) showToast('当前浏览器不支持语音播放');
+    return;
+  }
+
+  // Enter 必须使用最简单、完全同步的 speechSynthesis 调用。
+  // 不经过任何 setTimeout、Promise、分段队列或 stop helper，避免 Chrome
+  // 把 Enter 触发的语音请求判定为失去用户手势。
+  const text = stripMarkdownForSpeech(card[field] || '').trim();
+  if (!text) return;
+  const isEnglish = card.category === 'english' || _looksEnglish(text);
+
+  try {
+    speech.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = isEnglish ? 'en-US' : 'zh-CN';
+    u.rate = 0.95;
+
+    // 只有在声音已经加载时才指定 voice；没有 voice 时让浏览器自己选择。
+    if (!_isIOS) {
+      const voice = _selectChromeVoice(isEnglish);
+      if (voice) {
+        u.voice = voice;
+        u.lang = voice.lang || u.lang;
+      }
+    }
+
+    if (btn) {
+      _desktopClearButtons();
+      _iosClearButtons();
+      btn.classList.add('playing');
+      const clear = () => btn.classList.remove('playing');
+      u.onend = clear;
+      u.onerror = clear;
+    }
+
+    // 关键：speak() 紧跟在 keydown 事件中执行。
+    speech.speak(u);
+    // 某些 Chrome 状态异常时 speechSynthesis 会保持 paused，主动恢复。
+    if (speech.paused) speech.resume();
+  } catch (err) {
+    console.error('Enter TTS failed:', err);
+    if (btn) btn.classList.remove('playing');
+    showToast('发音失败：' + (err && err.message ? err.message : '请检查浏览器语音设置'));
+  }
 }
 
 function getAllCategories() {
@@ -2313,6 +2381,7 @@ function updateReviewSummary() {
   const summary = document.getElementById('reviewSummary');
   const dueToday = reviewUseSRS
     ? cards.filter(c => {
+        if (!c) return false;
         ensureSRS(c);
         return reviewSelectedCats.has(c.category) && c.nextReviewAt && c.nextReviewAt <= Date.now();
       }).length
@@ -2338,8 +2407,8 @@ function getReviewPool() {
   const dayMs = 86400000;
   const masteredFilter = c => reviewMasteredFilter === 'mastered' ? !!c.mastered : reviewMasteredFilter === 'unmastered' ? !c.mastered : true;
   const importantFilter = c => reviewImportantFilter === 'important' ? !!c.important : reviewImportantFilter === 'normal' ? !c.important : true;
-  const eligible = c => reviewSelectedCats.has(c.category) && masteredFilter(c) && importantFilter(c) && !todayModeSet.has(c.id);
-  const isNewCard = c => c.srsLevel === 'new' || (!c.lastReviewedAt && !(c.repetitions > 0));
+  const eligible = c => !!c && reviewSelectedCats.has(c.category) && masteredFilter(c) && importantFilter(c) && !todayModeSet.has(c.id);
+  const isNewCard = c => !!c && (c.srsLevel === 'new' || (!c.lastReviewedAt && !(c.repetitions > 0)));
 
   // “长期未复习”候选：即使 SRS 计划的下一次复习日期还没到，
   // 只要实际距离上次复习已经接近计划间隔，就允许被抽查，防止旧卡长期消失。
@@ -2358,45 +2427,16 @@ function getReviewPool() {
     ensureSRS(c);
     // 不同模式当天允许重复训练：其它模式已经出现过的卡片可以再次训练。
     if (otherModeIds.has(c.id)) return true;
-    // SRS 主池：到期卡 + 长期未复习卡。
+    // SRS 不再只返回“已经到期”的卡片；长期未复习卡也进入候选池。
     return !c.nextReviewAt || c.nextReviewAt <= now || isLongTermReview(c);
   });
 
-  // 如果当天的“到期 + 长期未复习”不足以填满用户设置的复习数量，
-  // 用普通卡补足，但不再随机抽取，而是按“最久没有出现”的顺序均匀轮换。
-  // 这样卡片数量很多时，也不会因为纯随机而让某些普通卡长期抽不到。
-  if (reviewUseSRS && reviewCountMode !== 'all') {
-    const targetCount = Math.max(0, parseInt(reviewCountMode) || 0);
-    if (targetCount > pool.length) {
-      const poolIds = new Set(pool.map(c => c.id));
-      const normalCandidates = cards.filter(c => {
-        if (!eligible(c) || poolIds.has(c.id) || isNewCard(c)) return false;
-        ensureSRS(c);
-        // 普通卡：尚未到期，也没有进入长期未复习候选。
-        if (c.nextReviewAt && c.nextReviewAt > now && !isLongTermReview(c)) return true;
-        return false;
-      }).sort((a, b) => {
-        // 从最久没有复习的开始，保证长期均匀轮换。
-        const aLast = a.lastReviewedAt || a.createdAt || 0;
-        const bLast = b.lastReviewedAt || b.createdAt || 0;
-        if (aLast !== bLast) return aLast - bLast;
-        return (a.createdAt || 0) - (b.createdAt || 0);
-      });
-      const need = Math.max(0, targetCount - pool.length);
-      pool = [...pool, ...normalCandidates.slice(0, need)];
-    }
-  }
-
   if (pool.length === 0) pool = cards.filter(eligible);
 
-  // 每天全局最多引入 dailyNewLimit 张真正的新卡；不同模式重复训练已出现过的新卡，不消耗新卡额度。
-  const seenNewToday = new Set();
-  Object.keys(todayModes).forEach(m => {
-    if (Array.isArray(todayModes[m])) todayModes[m].forEach(id => {
-      const card = cards.find(c => c.id === id);
-      if (card && isNewCard(card)) seenNewToday.add(id);
-    });
-  });
+  // 每种复习模式每天最多引入 dailyNewLimit 张新卡。
+  // 不同模式允许同一张新卡重复训练，因此不能把其它模式已经学习过的新卡
+  // 计入当前模式的额度。
+  const seenNewToday = new Set(Array.isArray(todayModes[getReviewModeKey(reviewMode)]) ? todayModes[getReviewModeKey(reviewMode)] : []);
   const remainingNewSlots = Math.max(0, dailyNewLimit - seenNewToday.size);
   const repeatedNewCards = pool.filter(c => isNewCard(c) && seenNewToday.has(c.id));
   const unseenNewCards = pool.filter(c => isNewCard(c) && !seenNewToday.has(c.id))
@@ -2411,6 +2451,9 @@ function closeReviewSettings() {
 }
 
 function confirmReview() {
+  try {
+    const todayDate = new Date().toDateString();
+    const todayModes = reviewModeLogs[todayDate] || {};
   if (reviewSelectedCats.size === 0) { showToast('请至少选择一个分类'); return; }
   let pool = getReviewPool();
   if (pool.length === 0) { showToast('选中分类没有可复习的卡片'); return; }
@@ -2507,67 +2550,90 @@ function confirmReview() {
   } else {
     reviewQueue = [...pool].sort((a,b) => a.createdAt - b.createdAt);
   }
-  // ★ 长期未复习保护机制：在有限的每日复习数量中，强制保留一部分名额给“快到期但长期没见过”的旧卡。
-  // 这样即使新卡和普通到期卡很多，几周/月前学过的单词也不会长期消失。
-  if (reviewUseSRS && maxCount > 0 && reviewQueue.length > maxCount) {
-    const nowForRotation = Date.now();
-    const dayMsForRotation = 86400000;
-    const isNewForRotation = c => (
+  // ★ 每日复习名额采用“新卡优先 + 到期优先 + 长期轮换 + 普通均匀轮换”。
+  // 新添加的卡片必须先获得名额，不能被长期未复习/普通卡片挤掉。
+  if (reviewUseSRS && maxCount > 0) {
+    const nowForSelection = Date.now();
+    const dayMsForSelection = 86400000;
+    const isNewForSelection = c => (
       c.srsLevel === 'new' ||
       (!c.lastReviewedAt && !(c.repetitions > 0))
     );
-    const isLongTermForRotation = c => {
-      if (isNewForRotation(c) || !c.lastReviewedAt || !c.interval || c.interval <= 0) return false;
-      const actualDays = Math.max(0, (nowForRotation - c.lastReviewedAt) / dayMsForRotation);
+    const isDueForSelection = c => (
+      isNewForSelection(c) || !c.nextReviewAt || c.nextReviewAt <= nowForSelection
+    );
+    const isLongTermForSelection = c => {
+      if (isNewForSelection(c) || !c.lastReviewedAt || !c.interval || c.interval <= 0) return false;
+      const actualDays = Math.max(0, (nowForSelection - c.lastReviewedAt) / dayMsForSelection);
       const ageRatio = actualDays / Math.max(1, c.interval);
-      // 只保护“尚未真正到期”的长期卡；已经到期的卡继续由正常 SRS 优先级处理。
-      return c.nextReviewAt > nowForRotation && actualDays >= 7 && ageRatio >= 0.80;
+      return c.nextReviewAt > nowForSelection && actualDays >= 7 && ageRatio >= 0.80;
     };
 
-    const longTermCandidates = reviewQueue
-      .filter(isLongTermForRotation)
+    const newQueue = reviewQueue
+      .filter(isNewForSelection)
+      .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+
+    // 新卡上限按“复习模式”分别计算。
+    // 例如今天翻卡模式已经学过 20 张新卡，不应阻止默写模式再次练习这些新卡。
+    const currentModeTodayIds = Array.isArray(todayModes[getReviewModeKey(reviewMode)])
+      ? todayModes[getReviewModeKey(reviewMode)] : [];
+    const seenNewTodayForSelection = new Set();
+    currentModeTodayIds.forEach(id => {
+      const card = cards.find(c => c.id === id);
+      if (card && isNewForSelection(card)) seenNewTodayForSelection.add(id);
+    });
+    const remainingNewSlotsForSelection = Math.max(0, dailyNewLimit - seenNewTodayForSelection.size);
+    const newQuota = Math.min(maxCount, newQueue.length, remainingNewSlotsForSelection);
+    const selectedNew = newQueue.slice(0, newQuota);
+    const selectedNewIds = new Set(selectedNew.map(c => c.id));
+
+    const oldQueue = reviewQueue.filter(c => !selectedNewIds.has(c.id) && !isNewForSelection(c));
+    const dueQueue = oldQueue.filter(isDueForSelection);
+    const longTermCandidates = oldQueue
+      .filter(c => !isDueForSelection(c) && isLongTermForSelection(c))
       .sort((a, b) => {
-        const ageA = ((nowForRotation - a.lastReviewedAt) / dayMsForRotation) / Math.max(1, a.interval || 1);
-        const ageB = ((nowForRotation - b.lastReviewedAt) / dayMsForRotation) / Math.max(1, b.interval || 1);
+        const ageA = ((nowForSelection - a.lastReviewedAt) / dayMsForSelection) / Math.max(1, a.interval || 1);
+        const ageB = ((nowForSelection - b.lastReviewedAt) / dayMsForSelection) / Math.max(1, b.interval || 1);
         return ageB - ageA;
       });
-
-    // 默认拿 20% 的每日名额做长期轮换；至少 1 张，最多不超过长期候选数量。
-    const longTermSlots = Math.min(
-      longTermCandidates.length,
-      Math.max(1, Math.floor(maxCount * 0.20))
-    );
-
-    if (longTermSlots > 0) {
-      const selectedLongTerm = longTermCandidates.slice(0, longTermSlots);
-      const selectedIds = new Set(selectedLongTerm.map(c => c.id));
-      const normalQueue = reviewQueue.filter(c => !selectedIds.has(c.id));
-      // 普通卡不再纯随机：按上次复习时间从旧到新轮换。
-      // 到期卡仍保持原有 SRS 优先级，新卡也继续保持最前面的优先级。
-      const isNormalCardForRotation = c => {
-        const meta = getReviewCardMeta(c);
-        return meta.type === '普通';
-      };
-      const rotatedNormal = normalQueue.filter(isNormalCardForRotation).sort((a, b) => {
-        const aLast = a.lastReviewedAt || a.createdAt || 0;
-        const bLast = b.lastReviewedAt || b.createdAt || 0;
-        if (aLast !== bLast) return aLast - bLast;
+    const normalQueue = oldQueue
+      .filter(c => !isDueForSelection(c) && !isLongTermForSelection(c))
+      .sort((a, b) => {
+        // 普通卡片均匀轮换：最久没有复习的优先；从未复习的卡片已经在 newQueue 中处理。
+        const lastA = a.lastReviewedAt || a.createdAt || 0;
+        const lastB = b.lastReviewedAt || b.createdAt || 0;
+        if (lastA !== lastB) return lastA - lastB;
         return (a.createdAt || 0) - (b.createdAt || 0);
       });
-      const otherQueue = normalQueue.filter(c => !isNormalCardForRotation(c));
-      const orderedNormalQueue = [
-        ...otherQueue,
-        ...rotatedNormal
-      ];
-      // 保留前 maxCount-longTermSlots 个正常卡片（新卡仍然保持最前面的优先级），
-      // 再把长期卡放到本次复习的后段，确保它们一定进入今天的复习。
-      reviewQueue = [
-        ...orderedNormalQueue.slice(0, Math.max(0, maxCount - longTermSlots)),
-        ...selectedLongTerm
-      ];
-    } else {
-      reviewQueue = reviewQueue.slice(0, maxCount);
-    }
+
+    const remainingAfterNew = Math.max(0, maxCount - selectedNew.length);
+
+    // 到期卡片优先。原来的 SRS 排序已经对 dueQueue 做过紧急度排序，
+    // 因此这里保持 reviewQueue 中已有顺序，只截取需要的数量。
+    const selectedDue = dueQueue.slice(0, remainingAfterNew);
+    const remainingAfterDue = Math.max(0, remainingAfterNew - selectedDue.length);
+
+    // 在剩余名额中，约 20% 给长期未复习卡，防止旧卡长期消失。
+    const longTermSlots = Math.min(
+      longTermCandidates.length,
+      remainingAfterDue > 0 ? Math.max(1, Math.floor(maxCount * 0.20)) : 0,
+      remainingAfterDue
+    );
+    const selectedLongTerm = longTermCandidates.slice(0, longTermSlots);
+    const selectedLongTermIds = new Set(selectedLongTerm.map(c => c.id));
+    const remainingAfterLongTerm = Math.max(0, remainingAfterDue - selectedLongTerm.length);
+
+    // 最后用普通卡补足，并按“最久未复习”持续轮换，而不是随机抽取。
+    const selectedNormal = normalQueue
+      .filter(c => !selectedLongTermIds.has(c.id))
+      .slice(0, remainingAfterLongTerm);
+
+    reviewQueue = [
+      ...selectedNew,
+      ...selectedDue,
+      ...selectedLongTerm,
+      ...selectedNormal
+    ];
   } else if (maxCount > 0 && reviewQueue.length > maxCount) {
     reviewQueue = reviewQueue.slice(0, maxCount);
   }
@@ -2579,9 +2645,13 @@ function confirmReview() {
   closeReviewSettings();
   document.getElementById('reviewOverlay').classList.add('show');
   renderReviewCard();
+  } catch (err) {
+    console.error('confirmReview failed:', err);
+    showToast('开始复习失败：' + (err && err.message ? err.message : '未知错误'));
+  }
 }
 
-function startReview() { openReviewSettings(); }
+function startReview() { reviewSettingsContext = 'start'; openReviewSettings(); }
 
 // ===== 数据导出 / 导入 =====
 async function exportData() {
@@ -3257,8 +3327,9 @@ document.addEventListener('keydown', (e) => {
       flipCard();
     } else if (e.key==='Enter') {
       e.preventDefault();
-      const flipped = document.getElementById('flashcard')?.classList.contains('flipped');
-      speakReviewCard(flipped ? 'content' : 'title');
+      e.stopPropagation();
+      // 翻卡模式 Enter：只朗读正面 title。直接在 keydown 中调用 TTS。
+      speakReviewCardDirect('title');
     } else if (e.key==='ArrowRight') {
       e.preventDefault();
       nextCard();
