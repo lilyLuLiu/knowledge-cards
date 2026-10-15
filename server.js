@@ -264,8 +264,9 @@ const server = http.createServer((req, res) => {
             if (parsed.srs.nextReviewAt != null) card.nextReviewAt = parsed.srs.nextReviewAt;
             if (parsed.srs.repetitions != null) card.repetitions = parsed.srs.repetitions;
             if (parsed.srs.lapses != null) card.lapses = parsed.srs.lapses;
+            if (parsed.srs.stability != null) card.stability = parsed.srs.stability;
             if (parsed.srs.srsLevel) card.srsLevel = parsed.srs.srsLevel;
-            card.lastReviewedAt = Date.now();
+            card.lastReviewedAt = parsed.srs.lastReviewedAt != null ? parsed.srs.lastReviewedAt : Date.now();
             // 记录复习历史
             if (!data.reviewHistory[id]) data.reviewHistory[id] = [];
             data.reviewHistory[id].push({
