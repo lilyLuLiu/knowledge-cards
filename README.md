@@ -164,15 +164,20 @@ sudo bash docker-install.sh --data-dir /mnt/kc-data --port 8080
 5. 以 `--restart unless-stopped` 启动容器，主机端口映射到容器 3000
 6. 放行防火墙端口
 
-### 容器配置（端口 / 密码 / 数据）
+### 容器配置（端口 / 密码 / 数据 / AI）
 
-| 项 | 参数 / 环境变量 | 说明 |
+配置统一放在服务器上的 `.env` 文件（参考 `.env.example`），部署脚本自动读取并注入容器：
+
+| 项 | .env 变量 | 说明 |
 |----|------|------|
-| 主机端口 | `docker-install.sh --port <端口>` | 映射到容器内固定 3000 |
-| 访问密码 | `docker-install.sh --password <密码>` | 通过环境变量 `PASSWORD` 注入，无需改文件 |
-| 数据目录 | `docker-install.sh --data-dir <目录>` | 挂载到容器 `/data`，容器内 `data.json` 写在此处 |
-| 监听端口（容器内） | 环境变量 `PORT` | 默认 3000，一般不需要改 |
+| 主机端口 | `PORT` | 映射到容器内固定 3000，默认 3000 |
+| 访问密码 | `PASSWORD` | 通过环境变量注入，无需改文件 |
+| 数据目录 | `DATA_DIR` | 挂载到容器 `/data`，默认 `/opt/workstation-data` |
+| AI API Key | `AI_API_KEY` | 造句复习用，可选；优先级高于 Web 设置页保存的 config.json |
+| AI 接口地址 | `AI_BASE_URL` | OpenAI 兼容接口，如 `https://api.deepseek.com/v1` |
+| AI 模型 | `AI_MODEL` | 如 `deepseek-chat`、`gpt-4o-mini` |
 
+> AI 三项为可选：不填时使用 Web「设置 → 🔑 AI 设置」保存的 config.json 配置。修改 .env 后重新运行 docker-install.sh 生效。
 > 也可用环境变量 `CONFIG_DIR` 指向挂载的配置文件目录（默认读取镜像内 `/app/config.json`）。
 
 ### 手动 Docker 命令
@@ -181,12 +186,15 @@ sudo bash docker-install.sh --data-dir /mnt/kc-data --port 8080
 # 构建镜像
 docker build -t knowledge-cards .
 
-# 运行容器（端口映射 + 密码 + 数据卷）
+# 运行容器（端口映射 + 密码 + AI 例句 + 数据卷）
 docker run -d \
   --name knowledge-cards \
   --restart unless-stopped \
   -p 3000:3000 \
   -e PASSWORD=yourpassword \
+  -e AI_API_KEY=sk-xxxx \
+  -e AI_BASE_URL=https://api.deepseek.com/v1 \
+  -e AI_MODEL=deepseek-chat \
   -v /opt/knowledge-cards-data:/data \
   knowledge-cards
 ```

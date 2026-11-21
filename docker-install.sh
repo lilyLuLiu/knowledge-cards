@@ -5,11 +5,20 @@ set -e
 #  知识卡片 · Docker 一键部署脚本
 #######################################
 # 用法:
-#   .env文件存储 PORT，DATA_DIR，PASSWORD的设置
+#   .env文件存储 PORT，DATA_DIR，PASSWORD，AI_API_KEY，AI_BASE_URL，AI_MODEL的设置
+#   （参考 .env.example；AI 设置为可选，不填则使用「设置 → 🔑 AI 设置」里保存的 config.json 配置）
 
-PORT=$(grep '^PORT=' .env | cut -d '=' -f2-) || PORT=3000
-DATA_DIR=$(grep '^DATA_DIR=' .env | cut -d '=' -f2-) || DATA_DIR=/opt/workstation-data
-PASSWORD=$(grep '^PASSWORD=' .env | cut -d '=' -f2-) || PASSWORD=
+get_env() { grep "^$1=" .env 2>/dev/null | head -1 | cut -d '=' -f2-; }
+
+PORT=$(get_env PORT) || PORT=3000
+[ -z "$PORT" ] && PORT=3000
+DATA_DIR=$(get_env DATA_DIR) || DATA_DIR=/opt/workstation-data
+[ -z "$DATA_DIR" ] && DATA_DIR=/opt/workstation-data
+PASSWORD=$(get_env PASSWORD) || PASSWORD=
+# AI 设置（造句复习）：优先级为 .env > config.json > 默认值
+AI_API_KEY=$(get_env AI_API_KEY) || AI_API_KEY=
+AI_BASE_URL=$(get_env AI_BASE_URL) || AI_BASE_URL=
+AI_MODEL=$(get_env AI_MODEL) || AI_MODEL=
 
 IMAGE_NAME="knowledge-cards"
 CONTAINER_NAME="knowledge-cards"
@@ -32,7 +41,15 @@ echo "  镜像名:   $IMAGE_NAME"
 echo "  容器名:   $CONTAINER_NAME"
 echo "  主机端口: $PORT  ->  容器 3000"
 echo "  数据目录: $DATA_DIR"
-echo "  密码:     ${PASSWORD:-未设置}"
+echo "  密码:     ${PASSWORD:+已设置}"
+# 掩码显示 API Key（只显示前4后4）
+if [ -n "$AI_API_KEY" ]; then
+  if [ ${#AI_API_KEY} -le 8 ]; then MASKED_KEY="••••••"; else MASKED_KEY="${AI_API_KEY:0:4}••••••${AI_API_KEY: -4}"; fi
+  echo "  AI Key:   $MASKED_KEY"
+  echo "  AI 接口:  ${AI_BASE_URL:-默认 OpenAI} / ${AI_MODEL:-默认模型}"
+else
+  echo "  AI Key:   未在 .env 设置（可用 Web 设置页保存）"
+fi
 echo "============================================"
 echo ""
 
@@ -67,11 +84,17 @@ ok "数据目录就绪: $DATA_DIR"
 
 # ===== 运行容器 =====
 info "启动容器 $CONTAINER_NAME ..."
+# 组装 AI 环境变量（仅在 .env 中设置时才注入）
+AI_ENV_ARGS=()
+[ -n "$AI_API_KEY" ] && AI_ENV_ARGS+=(-e "AI_API_KEY=${AI_API_KEY}")
+[ -n "$AI_BASE_URL" ] && AI_ENV_ARGS+=(-e "AI_BASE_URL=${AI_BASE_URL}")
+[ -n "$AI_MODEL" ] && AI_ENV_ARGS+=(-e "AI_MODEL=${AI_MODEL}")
 docker run -d \
   --name "$CONTAINER_NAME" \
   --restart unless-stopped \
   -p "${PORT}:3000" \
   -e "PASSWORD=${PASSWORD}" \
+  "${AI_ENV_ARGS[@]}" \
   -v "${DATA_DIR}:/data:Z" \
   "$IMAGE_NAME" >/dev/null
 
@@ -114,9 +137,14 @@ if [ -n "$PUBLIC_IP" ]; then
 fi
 echo "  📲 PWA 入口:  http://<服务器IP>:$PORT/pwa/  （手机浏览器打开后可「添加到主屏幕」安装为 App）"
 if [ -n "$PASSWORD" ]; then
-  echo "  🔐 登录密码:  $PASSWORD"
+  echo "  🔐 登录密码:  已通过 .env 注入"
 else
-  echo "  ⚠️  未设置密码，建议用 --password 或编辑 data 目录配置后重启容器"
+  echo "  ⚠️  未设置密码，建议编辑 .env 后重新运行本脚本"
+fi
+if [ -n "$AI_API_KEY" ]; then
+  echo "  🤖 AI 例句:  已通过 .env 注入（优先级高于 Web 设置页保存的 config.json）"
+else
+  echo "  🤖 AI 例句:  未配置，可在 Web「设置 → 🔑 AI 设置」填写，或编辑 .env 添加 AI_API_KEY"
 fi
 echo ""
 echo "  🐳 常用命令:"
