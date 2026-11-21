@@ -23,6 +23,97 @@ const TITLE = config.title || '知识卡片';
 
 // 数据目录：容器部署时通过 DATA_DIR 指向挂载卷，默认与代码同目录（兼容旧部署）
 const DATA_DIR = process.env.DATA_DIR || __dirname;
+
+// ===== AI 设置（造句复习用）=====
+// 优先级：环境变量 > config.json > 默认值。API Key 修改后立即生效（不缓存）。
+const AI_DEFAULTS = { aiBaseUrl: 'https://api.openai.com/v1', aiModel: 'gpt-4o-mini' };
+function getAiSettings() {
+  let cfg = {};
+  try { cfg = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf-8')); } catch (e) {}
+  return {
+    aiApiKey: process.env.AI_API_KEY || cfg.aiApiKey || '',
+    aiBaseUrl: (process.env.AI_BASE_URL || cfg.aiBaseUrl || AI_DEFAULTS.aiBaseUrl).replace(/\/+$/, ''),
+    aiModel: process.env.AI_MODEL || cfg.aiModel || AI_DEFAULTS.aiModel
+  };
+}
+function updateConfigFile(patch) {
+  let cfg = {};
+  try { cfg = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf-8')); } catch (e) {}
+  Object.assign(cfg, patch);
+  fs.writeFileSync(CONFIG_PATH, JSON.stringify(cfg, null, 2), 'utf-8');
+}
+function maskKey(key) {
+  if (!key) return '';
+  if (key.length <= 8) return '••••••';
+  return key.slice(0, 4) + '••••••' + key.slice(-4);
+}
+// 轻量去掉 markdown 符号，作为例句生成的"释义"参考
+function plainText(text, maxLen = 150) {
+  const s = String(text || '')
+    .replace(/[#*_>`~\[\]()]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return s.slice(0, maxLen);
+}
+// 调用 OpenAI 兼容接口生成例句（含 60s 超时）
+async function callAiForSentences(words) {
+  const { aiApiKey, aiBaseUrl, aiModel } = getAiSettings();
+  if (!aiApiKey) throw new Error('AI_NOT_CONFIGURED');
+  const input = words.map(w => ({ id: w.id, word: w.title, meaning: plainText(w.content) }));
+  const prompt = `你是英语例句生成器。请为下面的每个单词生成一个英文例句，要求：
+1. 每个句子中目标单词只出现一次（可以使用它的常见变形，如时态、复数、词性变化）
+2. 除目标单词外，句子中只使用简单常见的英文词汇（初中水平），不要生僻词
+3. 句子长度 8~16 个单词，自然通顺
+4. 给出句子的完整中文翻译
+5. wordForm 填目标单词在句中实际出现的原样形式
+
+输入单词列表：
+${JSON.stringify(input)}
+
+输出要求：只输出严格的 JSON 数组，不要 markdown 代码块，不要任何解释文字。格式：
+[{"id":123,"word":"单词原形","wordForm":"句中形式","sentence":"英文例句","translation":"中文翻译"}]`;
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 60000);
+  try {
+    const resp = await fetch(`${aiBaseUrl}/chat/completions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${aiApiKey}` },
+      body: JSON.stringify({
+        model: aiModel,
+        messages: [
+          { role: 'system', content: '你是一个严谨的英语例句生成器，只输出 JSON。' },
+          { role: 'user', content: prompt }
+        ],
+        temperature: 0.8
+      }),
+      signal: controller.signal
+    });
+    if (!resp.ok) {
+      const text = await resp.text().catch(() => '');
+      throw new Error(`AI 接口返回 ${resp.status}：${text.slice(0, 200)}`);
+    }
+    const json = await resp.json();
+    let content = json.choices?.[0]?.message?.content || '';
+    content = content.replace(/```json|```/g, '').trim();
+    let arr;
+    try { arr = JSON.parse(content); } catch (e) {
+      const m = content.match(/\[[\s\S]*\]/);
+      if (!m) throw new Error('AI 返回格式无法解析');
+      arr = JSON.parse(m[0]);
+    }
+    if (!Array.isArray(arr)) throw new Error('AI 返回格式不正确');
+    return arr.map(item => ({
+      id: item.id,
+      word: String(item.word || ''),
+      wordForm: String(item.wordForm || item.word || ''),
+      sentence: String(item.sentence || '').trim(),
+      translation: String(item.translation || '').trim()
+    })).filter(item => item.sentence);
+  } finally {
+    clearTimeout(timer);
+  }
+}
 const DATA_FILE = path.join(DATA_DIR, 'data.json');
 const PUBLIC_DIR = path.join(__dirname, 'public');
 const PWA_DIR = path.join(__dirname, 'pwa');
@@ -380,6 +471,53 @@ const server = http.createServer((req, res) => {
         try { fs.writeFileSync(DATA_FILE + '.bak', JSON.stringify(data, null, 2), 'utf-8'); } catch (e) {}
         saveData(data);
         sendJSON(res, 200, { success: true, mode, cardCount: data.cards.length });
+        return;
+      }
+
+      // ===== AI 设置（造句复习）=====
+      if (pathname === '/api/ai/settings' && req.method === 'GET') {
+        const ai = getAiSettings();
+        sendJSON(res, 200, {
+          configured: !!ai.aiApiKey,
+          aiBaseUrl: ai.aiBaseUrl,
+          aiModel: ai.aiModel,
+          apiKeyMasked: maskKey(ai.aiApiKey)
+        });
+        return;
+      }
+
+      if (pathname === '/api/ai/settings' && req.method === 'POST') {
+        const patch = {};
+        // apiKey 传空字符串表示不修改；显式传 '-' 表示清除
+        if (typeof parsed.aiApiKey === 'string' && parsed.aiApiKey !== '') {
+          patch.aiApiKey = parsed.aiApiKey.trim() === '-' ? '' : parsed.aiApiKey.trim();
+        }
+        if (typeof parsed.aiBaseUrl === 'string' && parsed.aiBaseUrl.trim()) patch.aiBaseUrl = parsed.aiBaseUrl.trim();
+        if (typeof parsed.aiModel === 'string' && parsed.aiModel.trim()) patch.aiModel = parsed.aiModel.trim();
+        updateConfigFile(patch);
+        const ai = getAiSettings();
+        sendJSON(res, 200, { success: true, configured: !!ai.aiApiKey, apiKeyMasked: maskKey(ai.aiApiKey) });
+        return;
+      }
+
+      // AI 批量生成例句（造句复习）
+      if (pathname === '/api/ai/sentences' && req.method === 'POST') {
+        const words = Array.isArray(parsed.words) ? parsed.words.filter(w => w && w.title) : [];
+        if (words.length === 0) { sendJSON(res, 400, { error: '缺少要生成例句的单词列表' }); return; }
+        (async () => {
+          try {
+            const sentences = await callAiForSentences(words);
+            sendJSON(res, 200, { sentences });
+          } catch (e) {
+            if (e.message === 'AI_NOT_CONFIGURED') {
+              sendJSON(res, 400, { error: 'AI 未配置，请先在设置中配置 API Key', requireAiSetup: true });
+            } else if (e.name === 'AbortError') {
+              sendJSON(res, 504, { error: 'AI 生成超时，请重试' });
+            } else {
+              sendJSON(res, 500, { error: e.message || 'AI 生成失败' });
+            }
+          }
+        })();
         return;
       }
 

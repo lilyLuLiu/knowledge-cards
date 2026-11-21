@@ -1,5 +1,5 @@
 // ===== 知识卡片 Service Worker =====
-const CACHE_NAME = 'kc-cache-v1';
+const CACHE_NAME = 'kc-cache-v2';
 const CORE_ASSETS = ['/', '/index.html', '/manifest.webmanifest', '/icon.png'];
 
 // 安装：预缓存核心资源

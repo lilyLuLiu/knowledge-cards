@@ -336,6 +336,24 @@ body.dark .md-code-inline { background:rgba(255,255,255,0.08); }
 .flashcard-back .md-code-inline { background:rgba(0,0,0,0.2); }
 .flashcard-back .flashcard-content { text-align:left; width:100%; }
 .dictation-play-btn.playing { animation:pulse 0.6s infinite; }
+
+/* Sentence Mode（造句复习） */
+.sentence-stage { display:flex; gap:8px; margin-bottom:18px; }
+.sentence-stage-tab { flex:1; padding:8px; border-radius:10px; font-size:13px; font-weight:600; text-align:center; background:var(--bg); color:var(--text-light); border:2px solid var(--border); }
+.sentence-stage-tab.active { background:var(--primary); color:#fff; border-color:var(--primary); }
+.sentence-stage-tab.done { background:var(--bg); color:var(--success); border-color:var(--success); }
+.sentence-cn { font-size:17px; line-height:1.7; color:var(--text); padding:16px; background:var(--bg); border-radius:12px; margin-bottom:20px; }
+.sentence-cn-label, .sentence-en-label { font-size:13px; color:var(--text-light); text-transform:uppercase; letter-spacing:1px; margin-bottom:10px; }
+.sentence-en { font-size:20px; line-height:1.9; color:var(--text); padding:16px; background:var(--bg); border-radius:12px; margin-bottom:20px; word-break:break-word; }
+.sentence-blank { display:inline-block; min-width:96px; text-align:center; border-bottom:2px dashed var(--primary); color:var(--primary); font-weight:700; padding:0 6px; }
+.sentence-input { width:100%; padding:12px 14px; border:2px solid var(--border); border-radius:12px; font-size:17px; background:var(--bg); color:var(--text); font-family:inherit; transition:border-color 0.2s; box-sizing:border-box; }
+.sentence-input:focus { outline:none; border-color:var(--primary); }
+.sentence-input:disabled { opacity:0.7; }
+.sentence-hint { font-size:13px; color:var(--text-light); margin-top:8px; }
+.sentence-answer-reveal { margin-top:20px; padding:16px; border-radius:12px; background:rgba(0,184,148,0.12); border:1px solid var(--success); animation:fadeIn 0.3s; }
+.sentence-loading { text-align:center; padding:60px 20px; }
+.sentence-loading-icon { font-size:56px; margin-bottom:16px; animation:pulse 1.2s infinite; }
+.sentence-loading-text { font-size:16px; color:var(--text-light); margin-bottom:20px; }
 @keyframes fadeIn { from{opacity:0;transform:translateY(10px);} to{opacity:1;transform:translateY(0);} }
 .sync-indicator { display:inline-flex; align-items:center; gap:6px; font-size:12px; color:var(--text-light); padding:4px 12px; background:var(--bg); border-radius:20px; }
 .sync-dot { width:8px; height:8px; border-radius:50%; background:var(--success); animation:pulse 2s infinite; }
@@ -791,6 +809,7 @@ body.dark .tab.active { background:#f3f7f5;color:#252a2d; }
           <button class="settings-item" onclick="openExportModal(); closeSettingsMenu()">📄 导出 PDF</button>
           <button class="settings-item" onclick="openCategoryModal(); closeSettingsMenu()">🗂️ 分类管理</button>
           <button class="settings-item" onclick="openReviewDefaults(); closeSettingsMenu()">🎯 复习默认设置</button>
+          <button class="settings-item" onclick="openAiSettings(); closeSettingsMenu()">🔑 AI 设置（造句复习）</button>
         </div>
       </div>
       </div>
@@ -964,8 +983,10 @@ body.dark .tab.active { background:#f3f7f5;color:#252a2d; }
         <div class="order-option active" data-rmode="flip" onclick="selectReviewMode('flip')">🃏 翻卡模式</div>
         <div class="order-option" data-rmode="recall" onclick="selectReviewMode('recall')">✍️ 默写模式</div>
         <div class="order-option" data-rmode="dictation" onclick="selectReviewMode('dictation')">🎧 听写模式</div>
+        <div class="order-option" data-rmode="sentence" onclick="selectReviewMode('sentence')">📝 造句复习</div>
       </div>
       <div style="font-size:12px;color:var(--text-light);margin-top:6px;" id="reviewModeHint">翻卡模式：看问题，点击翻转看答案</div>
+      <div style="font-size:12px;color:var(--text-light);margin-top:4px;display:none;" id="sentenceModeHint"></div>
     </div>
     <div class="form-group">
       <label class="form-label">复习分类（可多选）</label>
@@ -1030,6 +1051,29 @@ body.dark .tab.active { background:#f3f7f5;color:#252a2d; }
   </div>
 </div>
 
+<div class="modal-overlay" id="aiSettingsModal">
+  <div class="modal">
+    <div class="modal-title">🔑 AI 设置（造句复习）</div>
+    <div style="font-size:13px;color:var(--text-light);margin-bottom:16px;line-height:1.6;">
+      造句复习使用 OpenAI 兼容接口（如 OpenAI、DeepSeek、Moonshot 等）生成例句。填入对应的 API Key、接口地址和模型名即可。
+    </div>
+    <div class="form-group">
+      <label class="form-label">API Key</label>
+      <input type="password" class="review-count-input" id="aiApiKeyInput" style="width:100%;text-align:left;" placeholder="" autocomplete="off">
+      <div style="font-size:12px;color:var(--text-light);margin-top:6px;" id="aiKeyStatus">未配置</div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">接口地址（Base URL）</label>
+      <input type="text" class="review-count-input" id="aiBaseUrlInput" style="width:100%;text-align:left;" placeholder="https://api.openai.com/v1" autocomplete="off">
+    </div>
+    <div class="form-group">
+      <label class="form-label">模型名称</label>
+      <input type="text" class="review-count-input" id="aiModelInput" style="width:100%;text-align:left;" placeholder="gpt-4o-mini" autocomplete="off">
+    </div>
+    <div class="modal-actions"><button class="btn btn-outline" onclick="closeAiSettings()">取消</button><button class="btn btn-primary" onclick="saveAiSettings()">💾 保存</button></div>
+  </div>
+</div>
+
 <div class="review-overlay" id="reviewOverlay">
   <div class="review-header"><div class="review-progress">进度: <span id="reviewIndex">1</span> / <span id="reviewTotal">10</span></div><button class="review-close" onclick="exitReview()">✕</button></div>
   <div class="review-body" id="reviewBody"></div>
@@ -1044,6 +1088,11 @@ let currentFilter='all', editingId=null, reviewQueue=[], reviewIndex=0;
 let displayMasteredFilter='all', displayImportantFilter='all', displayReviewFilter='all', sortMode='desc';
 let cardSearchQuery='';
 let reviewMode='flip';
+// ===== 造句复习（AI 例句）=====
+let sentenceData = {};       // cardId -> { word, wordForm, sentence, translation }
+let sentenceStage = 1;       // 1=填空阶段 2=翻译阶段
+let sentenceLoading = false; // AI 例句是否生成中
+let aiSettingsCache = { configured: false, aiBaseUrl: 'https://api.openai.com/v1', aiModel: 'gpt-4o-mini', apiKeyMasked: '' };
 // ===== SRS 记忆曲线状态 =====
 let srsSettings = { fastMs: 3000, normalMs: 8000, slowMs: 15000 }; // 响应时间阈值
 let srsEnabled = true;       // 复习设置中是否启用 SRS 排序
@@ -1172,7 +1221,19 @@ async function api(method, path, body) {
   if (body) opts.body = JSON.stringify(body);
   const res = await fetch('/api' + path, opts);
   if (res.status === 401) { showLogin(); throw new Error('unauthorized'); }
-  if (!res.ok) { const err = new Error('API error ' + res.status); err.status = res.status; throw err; }
+  if (!res.ok) {
+    let msg = 'API error ' + res.status;
+    let needAiSetup = false;
+    try {
+      const j = await res.json();
+      if (j && j.error) msg = j.error;
+      if (j && j.requireAiSetup) needAiSetup = true;
+    } catch (e) {}
+    const err = new Error(msg);
+    err.status = res.status;
+    if (needAiSetup) err.requireAiSetup = true;
+    throw err;
+  }
   return res.json();
 }
 
@@ -1221,6 +1282,11 @@ async function init() {
     document.getElementById('loadingOverlay').classList.add('hidden');
     renderTabs(); renderCards(); updateStats();
   } catch (e) { if (e.message === 'unauthorized') return; showToast('加载失败'); document.getElementById('loadingOverlay').classList.add('hidden'); }
+  // 拉取 AI 设置状态（造句复习用），失败不阻塞主流程
+  try {
+    const ai = await api('GET', '/ai/settings');
+    aiSettingsCache = { ...aiSettingsCache, ...ai };
+  } catch (e) {}
 }
 
 function loadTheme() {
@@ -1965,6 +2031,45 @@ document.addEventListener('keydown', function(event) {
   if (event.key === 'Escape') { closeCardMenus(); closeCardDetail(); }
 });
 
+// ===== AI 设置（造句复习）=====
+async function openAiSettings() {
+  // 先拉最新配置（Key 只回显掩码）
+  try {
+    const ai = await api('GET', '/ai/settings');
+    aiSettingsCache = { ...aiSettingsCache, ...ai };
+  } catch (e) {}
+  document.getElementById('aiApiKeyInput').value = '';
+  document.getElementById('aiApiKeyInput').placeholder = aiSettingsCache.configured
+    ? `已配置（${aiSettingsCache.apiKeyMasked || '••••'}），留空保持不变`
+    : 'sk-...';
+  document.getElementById('aiKeyStatus').innerHTML = aiSettingsCache.configured
+    ? `<span style="color:var(--success);">✔ 已配置（${escapeHtml(aiSettingsCache.apiKeyMasked || '••••')}），留空则不修改；填 <b>-</b> 可清除</span>`
+    : '<span style="color:var(--danger);">⚠ 未配置，造句复习不可用</span>';
+  document.getElementById('aiBaseUrlInput').value = aiSettingsCache.aiBaseUrl || 'https://api.openai.com/v1';
+  document.getElementById('aiModelInput').value = aiSettingsCache.aiModel || 'gpt-4o-mini';
+  document.getElementById('aiSettingsModal').classList.add('show');
+}
+function closeAiSettings() {
+  document.getElementById('aiSettingsModal').classList.remove('show');
+}
+async function saveAiSettings() {
+  const keyVal = document.getElementById('aiApiKeyInput').value.trim();
+  const body = {
+    aiBaseUrl: document.getElementById('aiBaseUrlInput').value.trim(),
+    aiModel: document.getElementById('aiModelInput').value.trim()
+  };
+  if (keyVal !== '') body.aiApiKey = keyVal; // 留空表示不修改
+  try {
+    const res = await api('POST', '/ai/settings', body);
+    aiSettingsCache.configured = res.configured;
+    aiSettingsCache.apiKeyMasked = res.apiKeyMasked;
+    showToast(res.configured ? 'AI 设置已保存，造句复习可用' : 'AI 设置已保存（API Key 未配置）');
+    closeAiSettings();
+  } catch (e) {
+    showToast('保存失败：' + (e.message || '未知错误'));
+  }
+}
+
 // ===== 分类管理 =====
 function openCategoryModal() {
   document.getElementById('newCatName').value = '';
@@ -2096,7 +2201,7 @@ function getReviewDefaults() {
       : fallback.categories;
     return {
       categories: categories.length ? categories : fallback.categories,
-      mode: ['flip','recall','dictation'].includes(saved.mode) ? saved.mode : fallback.mode,
+      mode: ['flip','recall','dictation','sentence'].includes(saved.mode) ? saved.mode : fallback.mode,
       mastered: ['all','unmastered','mastered'].includes(saved.mastered) ? saved.mastered : fallback.mastered,
       important: ['all','important','normal'].includes(saved.important) ? saved.important : fallback.important,
       count: saved.count === 'all' || (parseInt(saved.count) > 0) ? String(saved.count) : fallback.count,
@@ -2150,7 +2255,13 @@ function syncReviewSettingsUI() {
   const dailyInput = document.getElementById('dailyNewLimit');
   if (dailyInput) dailyInput.value = dailyNewLimit;
   const hint = document.getElementById('reviewModeHint');
-  if (hint) hint.textContent = reviewMode === 'flip' ? '翻卡模式：看问题，点击翻转看答案' : reviewMode === 'recall' ? '默写模式：看答案，手写知识点，提交后对比' : '听写模式：仅听发音，写出知识点，提交后对比';
+  if (hint) {
+    const sHint = document.getElementById('sentenceModeHint');
+    if (reviewMode === 'flip') { hint.textContent = '翻卡模式：看问题，点击翻转看答案'; if (sHint) sHint.style.display = 'none'; }
+    else if (reviewMode === 'recall') { hint.textContent = '默写模式：看答案，手写知识点，提交后对比'; if (sHint) sHint.style.display = 'none'; }
+    else if (reviewMode === 'sentence') { hint.textContent = '造句复习：AI 生成例句，先根据中文填空，再做整句翻译（固定 10 张）'; if (sHint) { sHint.style.display = 'block'; sHint.innerHTML = aiSettingsCache.configured ? '🤖 AI 已配置，每次开始复习会生成 10 个新例句。' : '🤖 该模式需要 AI 接口：<button class="btn btn-outline btn-sm" style="padding:2px 10px;font-size:12px;" onclick="openAiSettings()">去配置 API Key</button>'; } }
+    else { hint.textContent = '听写模式：仅听发音，写出知识点，提交后对比'; if (sHint) sHint.style.display = 'none'; }
+  }
 }
 
 function openReviewDefaults() {
@@ -2251,9 +2362,16 @@ function selectReviewMode(mode) {
   document.querySelectorAll('#reviewModeOptions .order-option').forEach(el => el.classList.remove('active'));
   document.querySelector(`#reviewModeOptions .order-option[data-rmode="${mode}"]`).classList.add('active');
   const hint = document.getElementById('reviewModeHint');
-  if (mode === 'flip') hint.textContent = '翻卡模式：看问题，点击翻转看答案';
-  else if (mode === 'recall') hint.textContent = '默写模式：看答案，手写知识点，提交后对比';
-  else hint.textContent = '听写模式：仅听发音，写出知识点，提交后对比';
+  const sHint = document.getElementById('sentenceModeHint');
+  if (mode === 'flip') { hint.textContent = '翻卡模式：看问题，点击翻转看答案'; sHint.style.display = 'none'; }
+  else if (mode === 'recall') { hint.textContent = '默写模式：看答案，手写知识点，提交后对比'; sHint.style.display = 'none'; }
+  else if (mode === 'sentence') {
+    hint.textContent = '造句复习：AI 生成例句，先根据中文填空，再做整句翻译（固定 10 张）';
+    sHint.style.display = 'block';
+    sHint.innerHTML = '🤖 该模式需要 AI 接口：<button class="btn btn-outline btn-sm" style="padding:2px 10px;font-size:12px;" onclick="openAiSettings()">去配置 API Key</button>';
+    if (aiSettingsCache.configured) sHint.innerHTML = '🤖 AI 已配置，每次开始复习会生成 10 个新例句。';
+  }
+  else { hint.textContent = '听写模式：仅听发音，写出知识点，提交后对比'; sHint.style.display = 'none'; }
   updateReviewSummary();
 }
 
@@ -2302,14 +2420,14 @@ function selectCountCustom() {
 function updateReviewSummary() {
   const pool = getReviewPool();
   const isAll = reviewCountMode === 'all';
-  const maxCount = isAll ? 0 : (parseInt(reviewCountMode) || 0);
-  const willReview = maxCount > 0 ? Math.min(maxCount, pool.length) : pool.length;
+  const effMaxCount = reviewMode === 'sentence' ? 10 : (isAll ? 0 : (parseInt(reviewCountMode) || 0));
+  const willReview = effMaxCount > 0 ? Math.min(effMaxCount, pool.length) : pool.length;
   const orderText = reviewUseSRS
     ? '🆕 新卡片优先 → 🧠 记忆曲线'
     : (reviewOrder === 'random' ? '随机' : reviewOrder === 'sequential' ? '顺序（新→旧）' : '倒序（旧→新）');
   const masteredText = reviewMasteredFilter === 'all' ? '全部' : reviewMasteredFilter === 'mastered' ? '仅已学会' : '仅未学会';
   const importantText = reviewImportantFilter === 'all' ? '全部' : reviewImportantFilter === 'important' ? '仅重点' : '仅非重点';
-  const modeText = reviewMode === 'flip' ? '翻卡' : reviewMode === 'recall' ? '默写' : '听写';
+  const modeText = reviewMode === 'flip' ? '翻卡' : reviewMode === 'recall' ? '默写' : reviewMode === 'sentence' ? '📝 造句' : '听写';
   const summary = document.getElementById('reviewSummary');
   const dueToday = reviewUseSRS
     ? cards.filter(c => {
@@ -2415,7 +2533,8 @@ function confirmReview() {
   let pool = getReviewPool();
   if (pool.length === 0) { showToast('选中分类没有可复习的卡片'); return; }
   const isAll = reviewCountMode === 'all';
-  const maxCount = isAll ? 0 : (parseInt(reviewCountMode) || 0);
+  // 造句复习固定每次 10 张（由 AI 批量生成例句）
+  const maxCount = reviewMode === 'sentence' ? 10 : (isAll ? 0 : (parseInt(reviewCountMode) || 0));
   // SRS 开启时：仍尊重用户的顺序选择（随机/顺序），只是按"紧急度分层"保证越急越先整体出现
   if (reviewUseSRS) {
     const now = Date.now();
@@ -2578,7 +2697,14 @@ function confirmReview() {
   document.getElementById('reviewTotal').textContent = reviewQueue.length;
   closeReviewSettings();
   document.getElementById('reviewOverlay').classList.add('show');
-  renderReviewCard();
+  if (reviewMode === 'sentence') {
+    // 先展示生成中占位，再异步请求 AI 例句
+    sentenceData = {}; sentenceStage = 1; sentenceLoading = true;
+    document.getElementById('reviewBody').innerHTML = `<div class="sentence-loading"><div class="sentence-loading-icon">🤖</div><div class="sentence-loading-text">AI 正在为 ${reviewQueue.length} 个单词生成例句…</div></div>`;
+    prepareSentenceReview();
+  } else {
+    renderReviewCard();
+  }
 }
 
 function startReview() { openReviewSettings(); }
@@ -2870,6 +2996,7 @@ function renderReviewCard() {
   }
   if (reviewMode === 'recall') { renderRecallCard(); return; }
   if (reviewMode === 'dictation') { renderDictationCard(); return; }
+  if (reviewMode === 'sentence') { renderSentenceCard(); return; }
   const card = reviewQueue[reviewIndex], info = getCategoryInfo(card.category);
   const isMastered = !!card.mastered;
   const isImportant = !!card.important;
@@ -3061,6 +3188,217 @@ function retryDictation() {
   input.select();
 }
 
+/* ===== 造句复习（AI 例句）===== */
+function escapeRegExp(s) { return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+
+// 将句子中目标单词（wordForm）替换为填空占位；找不到时原样返回
+function blankWordInSentence(sentence, wordForm) {
+  if (!sentence) return '';
+  if (wordForm) {
+    // split 带捕获组：[文本, 匹配, 文本, 匹配, ...]；只挖空第一处，其余原样保留
+    const parts = sentence.split(new RegExp(`(${escapeRegExp(wordForm)})`, 'i'));
+    if (parts.length >= 3) return escapeHtml(parts[0]) + '<span class="sentence-blank">______</span>' + escapeHtml(parts.slice(2).join(''));
+  }
+  return escapeHtml(sentence);
+}
+
+// 朗读例句（英文）
+function speakSentence(text, btn) {
+  if (!text) return;
+  if (_isIOS) speakIOS(text, true, btn);
+  else speakDesktop(text, true, btn);
+}
+
+// 开始造句复习时批量请求 AI 例句
+async function prepareSentenceReview() {
+  sentenceLoading = true;
+  const words = reviewQueue.map(c => ({ id: c.id, title: c.title, content: stripMarkdownForSpeech(c.content || '') }));
+  try {
+    const res = await api('POST', '/ai/sentences', { words });
+    (res.sentences || []).forEach(s => { if (s && s.id != null && s.sentence) sentenceData[s.id] = s; });
+    sentenceLoading = false;
+    sentenceStage = 1;
+    renderReviewCard();
+  } catch (e) {
+    sentenceLoading = false;
+    const body = document.getElementById('reviewBody');
+    const isAiSetup = !!(e && e.requireAiSetup);
+    if (body) body.innerHTML = `<div class="sentence-loading"><div class="sentence-loading-icon">⚠️</div><div class="sentence-loading-text">${escapeHtml((e && e.message) || 'AI 例句生成失败')}</div>
+      <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
+        ${isAiSetup ? '<button class="btn btn-primary" onclick="openAiSettings()">🔑 去配置 API Key</button>' : ''}
+        <button class="btn btn-outline" onclick="prepareSentenceReview()">🔄 重试</button>
+        <button class="btn btn-outline" onclick="exitReview()">退出</button>
+      </div></div>`;
+  }
+}
+
+function renderSentenceCard() {
+  const body = document.getElementById('reviewBody');
+  document.getElementById('reviewIndex').textContent = reviewIndex + 1;
+  currentCardShownAt = Date.now();
+  currentFirstSubmitAt = 0;
+  currentFinalCorrect = null;
+  currentAttemptErrors = 0;
+  sentenceStage = 1;
+  const card = reviewQueue[reviewIndex], info = getCategoryInfo(card.category);
+  const isMastered = !!card.mastered;
+  const isImportant = !!card.important;
+  const reviewMeta = getReviewCardMeta(card);
+  const reviewMetaHtml = `<div class="review-card-meta"><span class="review-card-type ${reviewMeta.cls}">${reviewMeta.icon} ${reviewMeta.type}</span><span class="review-card-last-review">${reviewMeta.lastReviewText}</span></div>`;
+  const d = sentenceData[card.id];
+  if (!d || !d.sentence) {
+    body.innerHTML = `${reviewMetaHtml}<div class="recall-card"><span class="recall-category" style="background:${info.color}">${escapeHtml(info.name)}</span>
+      <div class="sentence-loading"><div class="sentence-loading-icon">⚠️</div><div class="sentence-loading-text">「${escapeHtml(card.title)}」的例句未能生成</div>
+      <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
+        <button class="btn btn-outline" onclick="prepareSentenceReview()">🔄 重新生成</button>
+        <button class="review-nav-btn next" onclick="nextCard()">下一张 ➡</button>
+      </div></div></div>`;
+    return;
+  }
+  renderSentenceStage1(card, info, d, reviewMetaHtml);
+}
+
+function sentenceStageTabsHtml(stage) {
+  return `<div class="sentence-stage">
+    <div class="sentence-stage-tab ${stage === 1 ? 'active' : 'done'}">${stage === 1 ? '1️⃣ 填空' : '✔️ 填空'}</div>
+    <div class="sentence-stage-tab ${stage === 2 ? 'active' : ''}">2️⃣ 翻译</div>
+  </div>`;
+}
+
+function renderSentenceStage1(card, info, d, reviewMetaHtml) {
+  const body = document.getElementById('reviewBody');
+  const isMastered = !!card.mastered;
+  const isImportant = !!card.important;
+  const blanked = blankWordInSentence(d.sentence, d.wordForm);
+  body.innerHTML = `${reviewMetaHtml}<div class="recall-card">
+    <span class="recall-category" style="background:${info.color}">${escapeHtml(info.name)}</span>
+    ${isImportant?'<span style="position:absolute;top:16px;right:140px;font-size:12px;background:#d78b35;color:#fff;padding:2px 10px;border-radius:20px;font-weight:600;">⭐ 重点</span>':''}
+    ${isMastered?'<span style="position:absolute;top:16px;right:70px;font-size:12px;background:var(--success);color:#fff;padding:2px 10px;border-radius:20px;font-weight:600;">✅ 已学会</span>':''}
+    <button class="recall-speak" onclick="speakSentence(${JSON.stringify(d.sentence).replace(/"/g,'&quot;')},this)" title="朗读例句">🔊</button>
+    ${sentenceStageTabsHtml(1)}
+    <div class="sentence-cn-label">🇨🇳 中文句意</div>
+    <div class="sentence-cn">${escapeHtml(d.translation || '（AI 未提供翻译）')}</div>
+    <div class="sentence-en-label">✍️ 补全英文句子</div>
+    <div class="sentence-en">${blanked}</div>
+    <input type="text" class="sentence-input" id="sentenceBlankInput" placeholder="填入空出的单词..." autocomplete="off" autocapitalize="off" spellcheck="false"
+      onkeydown="if(event.key==='Enter'){event.preventDefault();event.stopPropagation();if(document.getElementById('sentenceBlankInput').disabled){gotoSentenceStage2();}else{submitSentenceBlank();}}">
+    <div class="sentence-hint">提示：单词可能是原形或变形（时态 / 复数 / 词性）。填对后回车进入翻译练习。</div>
+    <div id="sentenceResult"></div>
+    <div class="recall-actions">
+      <button class="review-nav-btn skip" onclick="prevCard()" ${reviewIndex===0?'disabled':''}>⬅ 上一张</button>
+      <button class="review-nav-btn important-toggle ${isImportant?'active':''}" onclick="toggleImportantReview()">${isImportant?'⭐ 重点':'☆ 标记重点'}</button>
+      <button class="review-nav-btn mastered-toggle ${isMastered?'active':''}" onclick="toggleMasteredReview()">${isMastered?'✅ 已学会':'⬜ 标记学会'}</button>
+      <button class="review-nav-btn next" style="background:var(--primary);color:#fff;" onclick="submitSentenceBlank()">📝 提交</button>
+      <button class="review-nav-btn next" onclick="nextCard()">下一张 ➡</button>
+    </div>
+  </div>`;
+  setTimeout(() => { const inp = document.getElementById('sentenceBlankInput'); if (inp) inp.focus(); }, 100);
+}
+
+// 归一化：小写、去首尾空格和尾部标点
+function normalizeWordAnswer(s) {
+  return String(s || '').trim().toLowerCase().replace(/[.,!?;:'"]+$/, '').replace(/\s+/g, ' ');
+}
+
+function submitSentenceBlank() {
+  const card = reviewQueue[reviewIndex]; ensureSRS(card);
+  const d = sentenceData[card.id];
+  const input = document.getElementById('sentenceBlankInput');
+  const resultDiv = document.getElementById('sentenceResult');
+  if (!input || !d) return;
+  const userInput = input.value.trim();
+  if (!userInput) { showToast('请先填入单词再提交'); return; }
+  if (currentFirstSubmitAt === 0) currentFirstSubmitAt = Date.now();
+  const responseMs = Math.max(1, currentFirstSubmitAt - currentCardShownAt);
+  // 接受句中形式或卡片原形（忽略大小写和尾部标点）
+  const answers = [d.wordForm, d.word, card.title].filter(Boolean).map(normalizeWordAnswer);
+  const isCorrect = answers.includes(normalizeWordAnswer(userInput));
+  if (isCorrect) {
+    currentFinalCorrect = true;
+    const result = SRS.processReview(card, { correct: true, responseMs, mode: 'sentence', errorCount: currentAttemptErrors });
+    card._pendingSrs = result;
+    const speakBtn = document.querySelector('.recall-speak');
+    setTimeout(() => speakSentence(d.sentence, speakBtn), 80);
+    resultDiv.innerHTML = `<div class="recall-result correct">
+      <div class="recall-result-title">✅ 回答正确！</div>
+      <div class="recall-correct-answer">完整句子：<b>${escapeHtml(d.sentence)}</b></div>
+      <div style="font-size:13px;color:var(--text-light);margin-top:6px;">已记录本次复习，接下来做整句翻译练习。</div>
+      <button class="review-nav-btn" style="margin-top:10px;background:var(--primary);color:#fff;" onclick="gotoSentenceStage2()">进入翻译练习 ➡</button>
+    </div>`;
+    input.disabled = true;
+  } else {
+    currentAttemptErrors += 1;
+    currentFinalCorrect = false;
+    resultDiv.innerHTML = `<div class="recall-result wrong">
+      <div class="recall-result-title">❌ 不对哦，再想想</div>
+      <div style="font-size:13px;color:var(--text-light);margin-top:6px;">提示：结合中文句意，填写「${escapeHtml(card.title)}」在句中的形式。</div>
+      <button class="review-nav-btn" style="margin-top:10px;background:var(--primary);color:#fff;" onclick="retrySentenceBlank()">🔄 重新填写（不影响首次计时）</button>
+    </div>`;
+  }
+  resultDiv.scrollIntoView({ behavior:'smooth', block:'nearest' });
+}
+
+function retrySentenceBlank() {
+  const input = document.getElementById('sentenceBlankInput');
+  const resultDiv = document.getElementById('sentenceResult');
+  if (!input || !resultDiv) return;
+  resultDiv.innerHTML = '';
+  input.disabled = false;
+  input.focus();
+  input.select();
+}
+
+// 阶段 2：只显示英文句子，自查翻译，按键看答案
+function gotoSentenceStage2() {
+  sentenceStage = 2;
+  renderSentenceStage2();
+}
+
+function renderSentenceStage2() {
+  const body = document.getElementById('reviewBody');
+  const card = reviewQueue[reviewIndex], info = getCategoryInfo(card.category);
+  const isMastered = !!card.mastered;
+  const isImportant = !!card.important;
+  const reviewMeta = getReviewCardMeta(card);
+  const reviewMetaHtml = `<div class="review-card-meta"><span class="review-card-type ${reviewMeta.cls}">${reviewMeta.icon} ${reviewMeta.type}</span><span class="review-card-last-review">${reviewMeta.lastReviewText}</span></div>`;
+  const d = sentenceData[card.id];
+  if (!d || !d.sentence) { renderSentenceCard(); return; }
+  body.innerHTML = `${reviewMetaHtml}<div class="recall-card">
+    <span class="recall-category" style="background:${info.color}">${escapeHtml(info.name)}</span>
+    ${isImportant?'<span style="position:absolute;top:16px;right:140px;font-size:12px;background:#d78b35;color:#fff;padding:2px 10px;border-radius:20px;font-weight:600;">⭐ 重点</span>':''}
+    ${isMastered?'<span style="position:absolute;top:16px;right:70px;font-size:12px;background:var(--success);color:#fff;padding:2px 10px;border-radius:20px;font-weight:600;">✅ 已学会</span>':''}
+    <button class="recall-speak" onclick="speakSentence(${JSON.stringify(d.sentence).replace(/"/g,'&quot;')},this)" title="朗读例句">🔊</button>
+    ${sentenceStageTabsHtml(2)}
+    <div class="sentence-en-label">🇬🇧 英文句子（试着翻译成中文）</div>
+    <div class="sentence-en">${escapeHtml(d.sentence)}</div>
+    <div class="sentence-hint">在心里翻译这句话，然后点击下面的按钮核对答案。</div>
+    <div style="margin-top:16px;"><button class="btn btn-primary" id="sentenceRevealBtn" onclick="revealSentenceAnswer()">👁 查看答案</button></div>
+    <div id="sentenceAnswerArea"></div>
+    <div class="recall-actions">
+      <button class="review-nav-btn skip" onclick="prevCard()" ${reviewIndex===0?'disabled':''}>⬅ 上一张</button>
+      <button class="review-nav-btn important-toggle ${isImportant?'active':''}" onclick="toggleImportantReview()">${isImportant?'⭐ 重点':'☆ 标记重点'}</button>
+      <button class="review-nav-btn mastered-toggle ${isMastered?'active':''}" onclick="toggleMasteredReview()">${isMastered?'✅ 已学会':'⬜ 标记学会'}</button>
+      <button class="review-nav-btn next" style="background:var(--primary);color:#fff;" onclick="nextCard()">下一张 ➡</button>
+    </div>
+  </div>`;
+}
+
+function revealSentenceAnswer() {
+  const card = reviewQueue[reviewIndex];
+  const d = sentenceData[card.id];
+  const area = document.getElementById('sentenceAnswerArea');
+  if (!area || !d) return;
+  area.innerHTML = `<div class="sentence-answer-reveal">
+    <div class="recall-result-title" style="color:var(--success);">✅ 参考翻译</div>
+    <div class="recall-correct-answer">${escapeHtml(d.translation || '（AI 未提供翻译）')}</div>
+    <div class="recall-correct-answer" style="margin-top:10px;">🎯 本词：<b>${escapeHtml(card.title)}</b>（句中形式：<b>${escapeHtml(d.wordForm || card.title)}</b>）</div>
+    <div class="recall-correct-answer" style="margin-top:10px;">📖 释义：<span class="md-content">${renderMarkdown(card.content)}</span></div>
+  </div>`;
+  const btn = document.getElementById('sentenceRevealBtn');
+  if (btn) btn.style.display = 'none';
+  area.scrollIntoView({ behavior:'smooth', block:'nearest' });
+}
+
 function calcSimilarity(a, b) {
   if (a === b) return 1;
   if (!a || !b) return 0;
@@ -3144,7 +3482,7 @@ async function nextCard() {
   } else if (curCard._pendingSrs && hasSrsCommitToday(id)) {
     // 同一天不同模式可以重复训练，但同一张卡的 SRS 每天只结算一次。
     delete curCard._pendingSrs;
-  } else if (reviewMode === 'recall' || reviewMode === 'dictation') {
+  } else if (reviewMode === 'recall' || reviewMode === 'dictation' || reviewMode === 'sentence') {
     // 用户可能直接点了下一张（没有显式提交或默写/听写未完成就跳）：
     // 给一个"默认遗忘"的保守评分，保证 SRS 状态仍然推进
     // （翻卡模式不需要自评，也不更新 SRS 记忆状态）
